@@ -1,1 +1,4 @@
-# adventOfCode
+# Advent of Code
+
+## 2018
+### Day 1 in Elm
