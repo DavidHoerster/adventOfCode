@@ -1,0 +1,311 @@
+module Main exposing (Model, Msg(..), init, input, main, update, view)
+
+import Browser
+import Html exposing (Html, div, h1, img, text)
+import Html.Attributes exposing (src)
+
+
+
+---- MODEL ----
+
+
+type alias Model =
+    {}
+
+
+init : ( Model, Cmd Msg )
+init =
+    ( {}, Cmd.none )
+
+
+
+---- UPDATE ----
+
+
+type Msg
+    = NoOp
+
+
+update : Msg -> Model -> ( Model, Cmd Msg )
+update msg model =
+    ( model, Cmd.none )
+
+
+
+---- VIEW ----
+
+
+view : Model -> Html Msg
+view model =
+    div []
+        [ img [ src "/logo.svg" ] []
+        , h1 [] [ text "Your Elm App is working!" ]
+        ]
+
+
+
+---- PROGRAM ----
+
+
+main : Program () Model Msg
+main =
+    Browser.element
+        { view = view
+        , init = \_ -> init
+        , update = update
+        , subscriptions = always Sub.none
+        }
+
+
+input : String
+input =
+    """bvhfawknyoqsudzrpgslecmtkj
+bpufawcnyoqxldzrpgsleimtkj
+bvhfawcnyoqxqdzrplsleimtkf
+bvhoagcnyoqxudzrpgsleixtkj
+bxvfgwcnyoqxudzrpgsleimtkj
+bvqfawcngoqxudzrpgsleiktkj
+bvhfawcnmoqxuyzrpgsleimtkp
+bvheawcnyomxsdzrpgsleimtkj
+bcdfawcnyoqxudzrpgsyeimtkj
+bvhpawcnyoqxudzrpgsteimtkz
+bxhfawcnyozxudzrpgsleimtoj
+bvhfdwcnyozxudzrposleimtkj
+bvpfawcnyotxudzrpgsleimtkq
+bvhfpwccyoqxudzrpgslkimtkj
+bvhfawcnyoqxudirpgsreimtsj
+bvhfawcnyoqxudzppgbleemtkj
+bvhzawcnyoqxudqrpgslvimtkj
+bvhfawclyoqxudirpgsleimtka
+bvhgawfnyoqxudzrpguleimtkj
+bvhfazcnytqxudzrpgslvimtkj
+bvhfawcnygxxudzrpgjleimtkj
+bxhfawcnyoqxudzipgsleimtxj
+bvhptwcnyoqxudzrpgsleimtmj
+bzhfawcgyooxudzrpgsleimtkj
+bvhjlwcnyokxudzrpgsleimtkj
+bvhfawcnyoqxudbrmgslesmtkj
+bvhfawcnysixudzwpgsleimtkj
+bvhflwcnymqxxdzrpgsleimtkj
+bvifawcnyoyxudzrpgsleimtvj
+bvhfawcnyofxudlrpgsheimtkj
+bvhbawcmyoqxudzrpggleimtkj
+bhhxgwcnyoqxudzrpgsleimtkj
+bvhfawgnyoqxbdzrpgsleimfkj
+bvhfawcnyoqxudcrngsleimykj
+bvhfawcnyofxudzrpgslebgtkj
+bvhfaocnybqxudzapgsleimtkj
+bvhxawcnyodxudzrpfsleimtkj
+bchfawcnyoqxudrrtgsleimtkj
+bvhfawcqyoqxudzdpgsltimtkj
+bvhfawknyoqxudzrpnsleimtbj
+cihfawcnyoqxudirpgsleimtkj
+bvlfawpnyoqxudzrpgslgimtkj
+bulfawcnyoqbudzrpgsleimtkj
+bvhfajcnyoqkudzrpgsoeimtkj
+bvhrakcnyoqxudzrpgsleimjkj
+bvbftwcnyoqxuvzrpgsleimtkj
+bvhfhwcnyoqxudzrpgslelmtbj
+bvhyawcntoqxudzrpgsleimtuj
+xvhuawcnyoqxuqzrpgsleimtkj
+pvhfawcnyoqxudzdpglleimtkj
+bvhfawsnyoqxudzrpgvlefmtkj
+bvhfawcnyoqxudzrpgepeiwtkj
+bvhfawcnyoqxudzrphsleittkr
+dvhfawcnyoqxudzrpkslzimtkj
+bvhfawpnyoqxudzrpgmlcimtkj
+bvhsawcnyzqxudzrpgsaeimtkj
+bdhfawcnyoqxudzrpasleiwtkj
+bvhfawbnyoqxpdbrpgsleimtkj
+mvhfawwnyoqxujzrpgsleimtkj
+bvafawcnyoyxudzrpgsleidtkj
+bvhyawcnyoqxudztpgzleimtkj
+besfawcnyoqxudzrpgsleimdkj
+bvhfawcnyoqxudrrpgsjeimjkj
+xvhfkwcnyoqxudzcpgsleimtkj
+bvhfawcnyeqdudzrpgzleimtkj
+bvhfuwcnybqxudzrpgsleimttj
+lvhfawcnyoqhudzdpgsleimtkj
+bvhfawcnyoqxudzrpgslevwtnj
+bvhfadcnzoqxxdzrpgsleimtkj
+bvsfawcnyoqxpdzrpgileimtkj
+bzhfaycnyoqxudzrpgsxeimtkj
+bwhfdwcnyoqxudzrpgsleimtkz
+bvhfawcnyoqxudzrpgsjlimtkm
+bvhfawcnyoqxudsrwgsleimtlj
+bbhfalynyoqxudzrpgsleimtkj
+bvhfawcnyeqxudzrpglleimtkr
+bvhfawnnboqxurzrpgsleimtkj
+yvhfawcnyoqxudzrpgslzimtpj
+bvhfjwcnyoqxqdxrpgsleimtkj
+bthfawcnyoqfudzrpgslhimtkj
+bvhfawchuoqxudzqpgsleimtkj
+bvhfawcndoqxudzrugsleimrkj
+bvhfawcnnoqxjdzrpgsleidtkj
+bvhpawcnyoqkudzrpgsleimtzj
+bvhfaiinyoqxudzopgsleimtkj
+bvhfawcnyxqxuizrigsleimtkj
+bvnfawcnyoqxudzqpgsleimbkj
+bvnfawcnyoeyudzrpgsleimtkj
+bvhfawcnyoqxudarpgsieimtoj
+bthcawcnyoqxudlrpgsleimtkj
+bvhfnwcnyozxudzrpgsleomtkj
+bpwfawcnyoqxudzrpgskeimtkj
+bvhfapcnyoqxudnrpgsxeimtkj
+bvhfdwcnyoqxubzrxgsleimtkj
+fvhfawcnyoqxjdzrpgsleirtkj
+bvhfawcneoqxudzrvzsleimtkj
+bvhaawcnyoqxudzrpgsleimtex
+bvhfawcnyojxudvrpgsleimckj
+bvlfawcnyoqxddzrpgsleimtko
+bvhfawclfoqxudzrpgsleiktkj
+bvhfawciyobxudzrpgkleimtkj
+bvhfpwcnyoqxudzrpgsqeimtkd
+bvhyawcnyyqxudzrkgsleimtkj
+bvhfawcncoqxudzrphsaeimtkj
+bvhfawmnyoqxudzrpgifeimtkj
+bvhfawcjyoqxudzjpgszeimtkj
+bohfawcnwoqxudzrpgsleimwkj
+bvhfaucnyoqxudzrpgfluimtkj
+bvhfawlnyoqgudzrpgwleimtkj
+bmhfawcnyoqxndzrpgsleymtkj
+bvhfawcngoqxudzrpzxleimtkj
+bihfawcnyoqxudrrpgsleimokj
+lvhfawcnylqxudzrpgsleintkj
+bvhfawcnyoqvugzrqgsleimtkj
+bvhfawcnyoqxudzgpgslqimtij
+bvhfawcnyoqludzrpgslnimtcj
+hvhfawcnyolxudzrpgsmeimtkj
+nvhfawcdkoqxudzrpgsleimtkj
+bvhfawcnyoqxkdzrggsneimtkj
+bvhfawnnyoqxudzrpgqleibtkj
+bvhfawyuyoqxudzrhgsleimtkj
+wvhfbwcnyoqxtdzrpgsleimtkj
+bvhfawcnyoqxedzzpgoleimtkj
+bvhfawcnioqxunzrpgsleimtnj
+bvhfawctyoqxudzrpgsldkmtkj
+bvhfawcnyonxudzrpgsleitpkj
+bvefawcnyoqaudzhpgsleimtkj
+bvhfawcnyxqxudzrpgslelmbkj
+bvhfamrnyoqxudzrpgsleimgkj
+bvhfaqcnyoqxudzrpgsaeimekj
+bvhfawcnyoqcidzrpgsleimvkj
+bvhfawcnnorxudzrpgsmeimtkj
+bvroawcnyoqxudzrpgsleiwtkj
+bvhfwwcnyoqxudzrpaslewmtkj
+bvsfawcnyoqxudzcpgszeimtkj
+bkhfmwcnyoqjudzrpgsleimtkj
+bvtfawcnyoqxudzrcgslecmtkj
+bvhfawcnypzxudzrpgsleimtkv
+bvhfawcnyoqzudzrfgtleimtkj
+bvhpawcnyoqxudhrpgsleimtko
+tvhfawcnyoqxudzxpfsleimtkj
+bvhfawccyofxudzrpqsleimtkj
+bvnfawtnyoqxuzzrpgsleimtkj
+bvhfamcnuwqxudzrpgsleimtkj
+bvhfawcfyoqxudjrpgsleimrkj
+bvhpalcnyoqxudzrpgslexmtkj
+bvhfawcnjsqxudzlpgsleimtkj
+bvhfafcnioqxydzrpgsleimtkj
+bvzfawcnyxqxudzgpgsleimtkj
+bvhzawcnyoqxudzrpgslewctkj
+bvhiawcnhoqrudzrpgsleimtkj
+bvhfawcnyoqxuszrggslenmtkj
+bvhfowcnyoqxudzrptseeimtkj
+behfawfnyoqxudzrpgsleimlkj
+lvhfawcnyoqxudsrpgvleimtkj
+bvhfawnnyaqxudzrpgsqeimtkj
+lvhfawcnfoqxvdzrpgsleimtkj
+svhxawcnyoqxudzrpqsleimtkj
+bvhfawqnfoqxudzrpgsleimkkj
+bvhfafcnyoqcudzrpgsleimtcj
+bvhfyfcntoqxudzrpgsleimtkj
+bvhfpwcnyoqxudzrpgsleimumj
+bvhfawccyoqxudzrqgrleimtkj
+bvhfawqnyoqxudzbpgsleimkkj
+bvhflwcnyoqxudzrpxsleemtkj
+bvhfawcnyoqxuezrpgslehrtkj
+bvhfawceyoqxudzrpgsleimswj
+bvhfawcncohgudzrpgsleimtkj
+bahfawcnyoqxgdzrpgsleamtkj
+yvhfawcnyoqxudzrppslrimtkj
+fvhfawcmyoqxudzrpgskeimtkj
+bvylawsnyoqxudzrpgsleimtkj
+bvhfswcnyyqxedzrpgsleimtkj
+fvrfawcnyoqxudzrpgzleimtkj
+bvhfawcnyoqxuvzrpgslermtks
+bvhkawccyoqxudzcpgsleimtkj
+bvhfaobnyoqxudzrprsleimtkj
+bvbfawcnyoqxudirpgsleimhkj
+bvhfawcnyoqxudzvpgsueimtgj
+bvhxawcnyoqxudzrpgsleimtgi
+svhfawcjyoqxuszrpgsleimtkj
+bvnfawcnyoeyudzrpgsldimtkj
+bvhfawcnyoqxuhzrpgsleimcki
+bvhfvwcnyoqxudzizgsleimtkj
+bvhfapznyohxudzrpgsleimtkj
+bvhfaelnyosxudzrpgsleimtkj
+xvhfawcnmoqxuhzrpgsleimtkj
+bjhfawcnyaqxutzrpgsleimtkj
+bvhfawcnyohxudzrpgslgnmtkj
+bvhfawcnyoqxudzrppsreimtkx
+fvhfapcnyoqyudzrpgsleimtkj
+qvhfafcnyoqxudorpgsleimtkj
+bvhfawcnyoqxedzrwgsleimtvj
+bvhfawgnyoqxudzupgqleimtkj
+bvhfowctyoqxudzrpgbleimtkj
+bvhwawcnyoqxudzapgslvimtkj
+bvhfadcnyoqxudzrugsleimtuj
+bvhfawcnyosxudzlpgsleamtkj
+bvhfawcnywqxuqzrpgsloimtkj
+bvhfawcnyoqxumzrpgvlfimtkj
+bvhfawcgyoqxbdzrpgsleomtkj
+bvhfahcnyoqwudzrfgsleimtkj
+gvbfawcnyrqxudzrpgsleimtkj
+svhfawcnyoqxudlrpgsleimtkx
+avhfafcnyoqxuhzrpgsleimtkj
+bvhfawcsyoqxuazrpgsleimtej
+bvofawcnyoqxudzrpgsteimtkf
+bvhfajcnyoqxudzqpgszeimtkj
+bvhfawcsyoqxudzrmgsleiktkj
+mvhfawcnyoqxudzrpgkluimtkj
+bvhfawcnhoqxudzrpgslwhmtkj
+bmhaawsnyoqxudzrpgsleimtkj
+bvhfawcnyoqxudzhpgsleimhyj
+bvhfxwcnyoqxsdzypgsleimtkj
+bvhpawcyyoqxuczrpgsleimtkj
+bvomawcnyovxudzrpgsleimtkj
+bvhfawcnjvqxudzrpgsleimtkt
+nvhfawcnyqqxudzrpgsleittkj
+bvhiawcnyzqxudzrpysleimtkj
+bvhdawcnyoqxukzrpgsleimtuj
+bvhfawcnyyxxudzrpgslzimtkj
+hvhfawcnyoqxudzupgslemmtkj
+byhfawknyoqxudzrpgsleimtkb
+bvhfawcnyoqxudzrpasleihakj
+bvafahcnyaqxudzrpgsleimtkj
+bkhfawcnyoqxudzrpgllepmtkj
+bghfawcnycqxuzzrpgsleimtkj
+bvhfawcnyoqxudzrbgeleimtkl
+bvhfascnyoqgudzrpgsveimtkj
+bvhfawnnyoqxudzrpgsleimtdl
+bvhqawcnyoqxudzrpgsleimgrj
+bvhsawdwyoqxudzrpgsleimtkj
+bvhfawcnyoqxudzrpgaleipttj
+bvhfawcnrlqxudzrbgsleimtkj
+bvhfdwcnyoqxudzqpcsleimtkj
+bvhfawcnyoqxudzopgslexmokj
+bvhfawcoyoqxudzrpghlewmtkj
+bvhfozcnykqxudzrpgsleimtkj
+bvhfawcnyoqxuvzrpgslrimtkr
+bvhfrncnyoqrudzrpgsleimtkj
+bvhfawcnyocxuizrpgslefmtkj
+bvhfawywyoqxudzrpgsleimxkj
+bvhfawcnyoqxugzrpgslrimtij
+bvtfawcnyoqxudzcpgsleimtfj
+bvhfawcnyoqxuzzspgsleimtkz
+bvhfawcnzoqxvdzrpgslsimtkj
+bvhfzwcnyoqxudzrpgslenmhkj
+bvhfkccnyoqxudzrpgzleimtkj
+bvhfawcnyoqzudzrpgslhimwkj
+bzhfawvnyooxudzrpgsleimtkj"""
