@@ -37,7 +37,8 @@ type alias OverlapCount =
 
 
 type alias Coord =
-    { fromLeft : Int
+    { claim : Int
+    , fromLeft : Int
     , fromTop : Int
     , width : Int
     , height : Int
@@ -50,167 +51,178 @@ init =
         coords =
             convertDataToCoords input
 
-        count =
+        claim =
             case coords of
                 x :: xs ->
-                    processCoords x xs Dict.empty
+                    checkCoordForIntactness x xs
 
                 [] ->
-                    0
+                    -1
     in
-    ( count, Cmd.none )
+    ( claim, Cmd.none )
 
 
-processCoords : Coord -> Coords -> Dict ( Row, Col ) Count -> OverlapCount
-processCoords coord remainingCoord fabricDict =
-    let
-        newDict =
-            processCoord coord.fromTop coord.fromLeft (coord.fromTop + coord.height - 1) (coord.fromLeft + coord.width - 1) coord fabricDict
-
-        count =
-            case remainingCoord of
-                x :: xs ->
-                    --recursively call processCoords
-                    processCoords x xs newDict
-
-                [] ->
-                    --figure out number of items with more than 1 overlap
-                    let
-                        vals =
-                            Dict.values newDict
-
-                        countList =
-                            List.filter (\x -> x > 1) vals
-                    in
-                    List.length countList
-    in
-    count
-
-
-processCoord : Row -> Col -> Int -> Int -> Coord -> Dict ( Row, Col ) Count -> Dict ( Row, Col ) Count
-processCoord currRow currCol maxRow maxCol curr fabricDict =
-    let
-        newDict =
-            case Dict.get ( currRow, currCol ) fabricDict of
-                Just aCount ->
-                    Dict.insert ( currRow, currCol ) (aCount + 1) fabricDict
-
-                Nothing ->
-                    Dict.insert ( currRow, currCol ) 1 fabricDict
-    in
-    if currRow == maxRow then
-        if currCol == maxCol then
-            newDict
-
-        else
-            --reset row to top, increment col
-            processCoord curr.fromTop (currCol + 1) maxRow maxCol curr newDict
+checkCoordForIntactness : Coord -> Coords -> Int
+checkCoordForIntactness curr rest =
+    if List.isEmpty rest then
+        -2
 
     else
-        --increment row, keep col the same
-        processCoord (currRow + 1) currCol maxRow maxCol curr newDict
+        let
+            maxCol =
+                curr.fromLeft + curr.width - 1
+
+            maxRow =
+                curr.fromTop + curr.height - 1
+
+            isIntact =
+                checkCoordForIntactnessHelper curr maxCol maxRow rest
+        in
+        if isIntact then
+            curr.claim
+
+        else
+            case rest of
+                x :: xs ->
+                    checkCoordForIntactness x xs
+
+                [] ->
+                    -3
+
+
+checkCoordForIntactnessHelper : Coord -> Int -> Int -> Coords -> Bool
+checkCoordForIntactnessHelper curr maxCol maxRow rest =
+    let
+        result =
+            case rest of
+                x :: xs ->
+                    --get data for head
+                    let
+                        ry =
+                            x.fromLeft
+
+                        ry1 =
+                            x.fromLeft + x.width - 1
+
+                        rx =
+                            x.fromTop
+
+                        rx1 =
+                            x.fromTop + x.height - 1
+                    in
+                    if ((ry <= curr.fromLeft) && (curr.fromLeft <= ry1)) || ((ry <= maxCol) && (maxCol <= ry1)) then
+                        --intersection...fail!
+                        if ((rx <= curr.fromTop) && (curr.fromTop <= rx1)) || ((rx <= maxRow) && (maxRow <= rx1)) then
+                            False
+
+                        else
+                            --success...move to next item
+                            checkCoordForIntactnessHelper curr maxCol maxRow xs
+
+                    else
+                        --success...move to next item
+                        checkCoordForIntactnessHelper curr maxCol maxRow xs
+
+                [] ->
+                    True
+    in
+    result
 
 
 convertDataToCoords : String -> Coords
 convertDataToCoords data =
     data
-        -- ["line1", "line2"]
         |> String.lines
-        -- [[#1, <coords>],[#2, <coords>]]
-        |> List.map (String.split " @ ")
-        -- [[<coords>]]
-        |> List.map (List.drop 1)
-        -- [<coords>]
-        |> List.map
-            (\x ->
-                case x of
-                    x1 :: xs ->
-                        x1
+        |> List.map convertStringToCoord
 
-                    [] ->
-                        ""
-            )
-        -- [["pos","size"]]
-        |> List.map (String.split ": ")
-        |> List.map
-            (\x ->
-                case x of
-                    x1 :: xs ->
-                        let
-                            --[x,y]
-                            pos =
-                                String.split "," x1
 
-                            --[width,height]
-                            size =
-                                case xs of
-                                    y :: ys ->
-                                        String.split "x" y
+convertStringToCoord : String -> Coord
+convertStringToCoord item =
+    let
+        coord_str =
+            String.dropLeft 1 item
 
-                                    [] ->
-                                        []
+        coord_str_len =
+            String.length coord_str
 
-                            fromLeft =
-                                case pos of
-                                    x2 :: xs2 ->
-                                        case String.toInt x2 of
-                                            Just i ->
-                                                i
+        at_idx =
+            case List.head (String.indexes " @ " coord_str) of
+                Just aAt ->
+                    aAt
 
-                                            Nothing ->
-                                                -1
+                Nothing ->
+                    -10
 
-                                    [] ->
-                                        -1
+        comma_idx =
+            case List.head (String.indexes "," coord_str) of
+                Just aComma ->
+                    aComma
 
-                            fromTop =
-                                case List.Extra.last pos of
-                                    Just t ->
-                                        case String.toInt t of
-                                            Just aT ->
-                                                aT
+                Nothing ->
+                    -11
 
-                                            Nothing ->
-                                                -1
+        colon_idx =
+            case List.head (String.indexes ": " coord_str) of
+                Just aColon ->
+                    aColon
 
-                                    Nothing ->
-                                        -1
+                Nothing ->
+                    -12
 
-                            width =
-                                case size of
-                                    x3 :: xs3 ->
-                                        case String.toInt x3 of
-                                            Just aX3 ->
-                                                aX3
+        x_idx =
+            case List.head (String.indexes "x" coord_str) of
+                Just aX ->
+                    aX
 
-                                            Nothing ->
-                                                -1
+                Nothing ->
+                    -13
 
-                                    [] ->
-                                        -1
+        claim =
+            case String.toInt (String.slice 0 at_idx coord_str) of
+                Just aClaim ->
+                    aClaim
 
-                            height =
-                                case List.Extra.last size of
-                                    Just h ->
-                                        case String.toInt h of
-                                            Just aH ->
-                                                aH
+                Nothing ->
+                    -14
 
-                                            Nothing ->
-                                                -1
+        fromLeft =
+            case String.toInt (String.slice (at_idx + 3) comma_idx coord_str) of
+                Just aLeft ->
+                    aLeft
 
-                                    Nothing ->
-                                        -1
-                        in
-                        { fromLeft = fromLeft
-                        , fromTop = fromTop
-                        , width = width
-                        , height = height
-                        }
+                Nothing ->
+                    -15
 
-                    [] ->
-                        { fromLeft = -2, fromTop = -2, width = -2, height = -2 }
-            )
+        fromTop =
+            case String.toInt (String.slice (comma_idx + 1) colon_idx coord_str) of
+                Just aTop ->
+                    aTop
+
+                Nothing ->
+                    -16
+
+        width =
+            case String.toInt (String.slice (colon_idx + 2) x_idx coord_str) of
+                Just aWidth ->
+                    aWidth
+
+                Nothing ->
+                    -17
+
+        height =
+            case String.toInt (String.slice (x_idx + 1) coord_str_len coord_str) of
+                Just aHeight ->
+                    aHeight
+
+                Nothing ->
+                    -18
+    in
+    { claim = claim
+    , fromLeft = fromLeft
+    , fromTop = fromTop
+    , width = width
+    , height = height
+    }
 
 
 
