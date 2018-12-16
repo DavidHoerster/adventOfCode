@@ -42,6 +42,8 @@ type alias Coord =
     , fromTop : Int
     , width : Int
     , height : Int
+    , maxCol : Int
+    , maxRow : Int
     }
 
 
@@ -51,77 +53,68 @@ init =
         coords =
             convertDataToCoords input
 
-        claim =
-            case coords of
-                x :: xs ->
-                    checkCoordForIntactness x xs
+        idx =
+            case List.Extra.getAt 0 coords of
+                Just aCoord ->
+                    aCoord
 
-                [] ->
-                    -1
+                Nothing ->
+                    { claim = 0, fromLeft = 0, fromTop = 0, width = 0, height = 0, maxCol = 0, maxRow = 0 }
+
+        claim =
+            checkCoordForIntactness2 idx coords 0
     in
     ( claim, Cmd.none )
 
 
-checkCoordForIntactness : Coord -> Coords -> Int
-checkCoordForIntactness curr rest =
-    if List.isEmpty rest then
+checkCoordForIntactness2 : Coord -> Coords -> Int -> Int
+checkCoordForIntactness2 curr coords claimIndexBeingChecked =
+    if List.isEmpty coords then
         -2
 
     else
         let
-            maxCol =
-                curr.fromLeft + curr.width - 1
-
-            maxRow =
-                curr.fromTop + curr.height - 1
-
             isIntact =
-                checkCoordForIntactnessHelper curr maxCol maxRow rest
+                checkCoordForIntactnessHelper curr coords
         in
         if isIntact then
             curr.claim
 
         else
-            case rest of
-                x :: xs ->
-                    checkCoordForIntactness x xs
+            let
+                newCoord =
+                    List.Extra.getAt (claimIndexBeingChecked + 1) coords
+            in
+            case newCoord of
+                Just aCoord ->
+                    checkCoordForIntactness2 aCoord coords (claimIndexBeingChecked + 1)
 
-                [] ->
-                    -3
+                Nothing ->
+                    -3 * (claimIndexBeingChecked + 1)
 
 
-checkCoordForIntactnessHelper : Coord -> Int -> Int -> Coords -> Bool
-checkCoordForIntactnessHelper curr maxCol maxRow rest =
+checkCoordForIntactnessHelper : Coord -> Coords -> Bool
+checkCoordForIntactnessHelper curr rest =
     let
         result =
             case rest of
                 x :: xs ->
-                    --get data for head
-                    let
-                        ry =
-                            x.fromLeft
+                    if curr.claim == x.claim then
+                        --comparing the same item...move on
+                        checkCoordForIntactnessHelper curr xs
 
-                        ry1 =
-                            x.fromLeft + x.width - 1
-
-                        rx =
-                            x.fromTop
-
-                        rx1 =
-                            x.fromTop + x.height - 1
-                    in
-                    if ((ry <= curr.fromLeft) && (curr.fromLeft <= ry1)) || ((ry <= maxCol) && (maxCol <= ry1)) then
+                    else if ((x.fromLeft <= curr.fromLeft) && (curr.fromLeft <= x.maxCol)) || ((x.fromLeft <= curr.maxCol) && (curr.maxCol <= x.maxCol)) || ((curr.fromLeft <= x.fromLeft) && (curr.maxCol >= x.maxCol)) then
                         --intersection...fail!
-                        if ((rx <= curr.fromTop) && (curr.fromTop <= rx1)) || ((rx <= maxRow) && (maxRow <= rx1)) then
+                        if ((x.fromTop <= curr.fromTop) && (curr.fromTop <= x.maxRow)) || ((x.fromTop <= curr.maxRow) && (curr.maxRow <= x.maxRow)) || ((curr.fromTop <= x.fromTop) && (curr.maxRow >= x.maxRow)) then
                             False
 
                         else
                             --success...move to next item
-                            checkCoordForIntactnessHelper curr maxCol maxRow xs
+                            checkCoordForIntactnessHelper curr xs
 
                     else
                         --success...move to next item
-                        checkCoordForIntactnessHelper curr maxCol maxRow xs
+                        checkCoordForIntactnessHelper curr xs
 
                 [] ->
                     True
@@ -222,6 +215,8 @@ convertStringToCoord item =
     , fromTop = fromTop
     , width = width
     , height = height
+    , maxCol = fromLeft + width - 1
+    , maxRow = fromTop + height - 1
     }
 
 

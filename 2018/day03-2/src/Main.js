@@ -4367,28 +4367,26 @@ var elm$core$Array$foldr = F3(
 var elm$core$Array$toList = function (array) {
 	return A3(elm$core$Array$foldr, elm$core$List$cons, _List_Nil, array);
 };
-var elm$core$Basics$add = _Basics_add;
 var elm$core$Basics$and = _Basics_and;
+var elm$core$Basics$eq = _Utils_equal;
+var elm$core$Basics$ge = _Utils_ge;
 var elm$core$Basics$le = _Utils_le;
 var elm$core$Basics$or = _Basics_or;
-var elm$core$Basics$sub = _Basics_sub;
-var author$project$Main$checkCoordForIntactnessHelper = F4(
-	function (curr, maxCol, maxRow, rest) {
+var author$project$Main$checkCoordForIntactnessHelper = F2(
+	function (curr, rest) {
 		var result = function () {
 			if (rest.b) {
 				var x = rest.a;
 				var xs = rest.b;
-				var ry1 = (x.fromLeft + x.width) - 1;
-				var ry = x.fromLeft;
-				var rx1 = (x.fromTop + x.height) - 1;
-				var rx = x.fromTop;
-				return (((_Utils_cmp(ry, curr.fromLeft) < 1) && (_Utils_cmp(curr.fromLeft, ry1) < 1)) || ((_Utils_cmp(ry, maxCol) < 1) && (_Utils_cmp(maxCol, ry1) < 1))) ? ((((_Utils_cmp(rx, curr.fromTop) < 1) && (_Utils_cmp(curr.fromTop, rx1) < 1)) || ((_Utils_cmp(rx, maxRow) < 1) && (_Utils_cmp(maxRow, rx1) < 1))) ? false : A4(author$project$Main$checkCoordForIntactnessHelper, curr, maxCol, maxRow, xs)) : A4(author$project$Main$checkCoordForIntactnessHelper, curr, maxCol, maxRow, xs);
+				return _Utils_eq(curr.claim, x.claim) ? A2(author$project$Main$checkCoordForIntactnessHelper, curr, xs) : ((((_Utils_cmp(x.fromLeft, curr.fromLeft) < 1) && (_Utils_cmp(curr.fromLeft, x.maxCol) < 1)) || (((_Utils_cmp(x.fromLeft, curr.maxCol) < 1) && (_Utils_cmp(curr.maxCol, x.maxCol) < 1)) || ((_Utils_cmp(curr.fromLeft, x.fromLeft) < 1) && (_Utils_cmp(curr.maxCol, x.maxCol) > -1)))) ? ((((_Utils_cmp(x.fromTop, curr.fromTop) < 1) && (_Utils_cmp(curr.fromTop, x.maxRow) < 1)) || (((_Utils_cmp(x.fromTop, curr.maxRow) < 1) && (_Utils_cmp(curr.maxRow, x.maxRow) < 1)) || ((_Utils_cmp(curr.fromTop, x.fromTop) < 1) && (_Utils_cmp(curr.maxRow, x.maxRow) > -1)))) ? false : A2(author$project$Main$checkCoordForIntactnessHelper, curr, xs)) : A2(author$project$Main$checkCoordForIntactnessHelper, curr, xs));
 			} else {
 				return true;
 			}
 		}();
 		return result;
 	});
+var elm$core$Basics$add = _Basics_add;
+var elm$core$Basics$mul = _Basics_mul;
 var elm$core$Basics$negate = function (n) {
 	return -n;
 };
@@ -4399,30 +4397,29 @@ var elm$core$List$isEmpty = function (xs) {
 		return false;
 	}
 };
-var author$project$Main$checkCoordForIntactness = F2(
-	function (curr, rest) {
-		checkCoordForIntactness:
+var elm$core$Basics$apL = F2(
+	function (f, x) {
+		return f(x);
+	});
+var elm$core$Basics$lt = _Utils_lt;
+var elm$core$Basics$sub = _Basics_sub;
+var elm$core$List$drop = F2(
+	function (n, list) {
+		drop:
 		while (true) {
-			if (elm$core$List$isEmpty(rest)) {
-				return -2;
+			if (n <= 0) {
+				return list;
 			} else {
-				var maxRow = (curr.fromTop + curr.height) - 1;
-				var maxCol = (curr.fromLeft + curr.width) - 1;
-				var isIntact = A4(author$project$Main$checkCoordForIntactnessHelper, curr, maxCol, maxRow, rest);
-				if (isIntact) {
-					return curr.claim;
+				if (!list.b) {
+					return list;
 				} else {
-					if (rest.b) {
-						var x = rest.a;
-						var xs = rest.b;
-						var $temp$curr = x,
-							$temp$rest = xs;
-						curr = $temp$curr;
-						rest = $temp$rest;
-						continue checkCoordForIntactness;
-					} else {
-						return -3;
-					}
+					var x = list.a;
+					var xs = list.b;
+					var $temp$n = n - 1,
+						$temp$list = xs;
+					n = $temp$n;
+					list = $temp$list;
+					continue drop;
 				}
 			}
 		}
@@ -4440,7 +4437,39 @@ var elm$core$List$head = function (list) {
 		return elm$core$Maybe$Nothing;
 	}
 };
-var elm$core$Basics$lt = _Utils_lt;
+var elm_community$list_extra$List$Extra$getAt = F2(
+	function (idx, xs) {
+		return (idx < 0) ? elm$core$Maybe$Nothing : elm$core$List$head(
+			A2(elm$core$List$drop, idx, xs));
+	});
+var author$project$Main$checkCoordForIntactness2 = F3(
+	function (curr, coords, claimIndexBeingChecked) {
+		checkCoordForIntactness2:
+		while (true) {
+			if (elm$core$List$isEmpty(coords)) {
+				return -2;
+			} else {
+				var isIntact = A2(author$project$Main$checkCoordForIntactnessHelper, curr, coords);
+				if (isIntact) {
+					return curr.claim;
+				} else {
+					var newCoord = A2(elm_community$list_extra$List$Extra$getAt, claimIndexBeingChecked + 1, coords);
+					if (newCoord.$ === 'Just') {
+						var aCoord = newCoord.a;
+						var $temp$curr = aCoord,
+							$temp$coords = coords,
+							$temp$claimIndexBeingChecked = claimIndexBeingChecked + 1;
+						curr = $temp$curr;
+						coords = $temp$coords;
+						claimIndexBeingChecked = $temp$claimIndexBeingChecked;
+						continue checkCoordForIntactness2;
+					} else {
+						return (-3) * (claimIndexBeingChecked + 1);
+					}
+				}
+			}
+		}
+	});
 var elm$core$String$length = _String_length;
 var elm$core$String$slice = _String_slice;
 var elm$core$String$dropLeft = F2(
@@ -4546,7 +4575,7 @@ var author$project$Main$convertStringToCoord = function (item) {
 			return -15;
 		}
 	}();
-	return {claim: claim, fromLeft: fromLeft, fromTop: fromTop, height: height, width: width};
+	return {claim: claim, fromLeft: fromLeft, fromTop: fromTop, height: height, maxCol: (fromLeft + width) - 1, maxRow: (fromTop + height) - 1, width: width};
 };
 var elm$core$Basics$apR = F2(
 	function (x, f) {
@@ -4704,7 +4733,6 @@ var elm$core$Array$compressNodes = F2(
 			}
 		}
 	});
-var elm$core$Basics$eq = _Utils_equal;
 var elm$core$Tuple$first = function (_n0) {
 	var x = _n0.a;
 	return x;
@@ -4725,16 +4753,11 @@ var elm$core$Array$treeFromBuilder = F2(
 			}
 		}
 	});
-var elm$core$Basics$apL = F2(
-	function (f, x) {
-		return f(x);
-	});
 var elm$core$Basics$floor = _Basics_floor;
 var elm$core$Basics$max = F2(
 	function (x, y) {
 		return (_Utils_cmp(x, y) > 0) ? x : y;
 	});
-var elm$core$Basics$mul = _Basics_mul;
 var elm$core$Elm$JsArray$length = _JsArray_length;
 var elm$core$Array$builderToArray = F2(
 	function (reverseNodeList, builder) {
@@ -5012,15 +5035,16 @@ var elm$core$Platform$Cmd$batch = _Platform_batch;
 var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
 var author$project$Main$init = function () {
 	var coords = author$project$Main$convertDataToCoords(author$project$Main$input);
-	var claim = function () {
-		if (coords.b) {
-			var x = coords.a;
-			var xs = coords.b;
-			return A2(author$project$Main$checkCoordForIntactness, x, xs);
+	var idx = function () {
+		var _n0 = A2(elm_community$list_extra$List$Extra$getAt, 0, coords);
+		if (_n0.$ === 'Just') {
+			var aCoord = _n0.a;
+			return aCoord;
 		} else {
-			return -1;
+			return {claim: 0, fromLeft: 0, fromTop: 0, height: 0, maxCol: 0, maxRow: 0, width: 0};
 		}
 	}();
+	var claim = A3(author$project$Main$checkCoordForIntactness2, idx, coords, 0);
 	return _Utils_Tuple2(claim, elm$core$Platform$Cmd$none);
 }();
 var author$project$Main$update = F2(
