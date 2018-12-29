@@ -43,11 +43,6 @@ type alias MinuteCount =
     Int
 
 
-
--- type alias GuardMinuteLog =
---     Dict MinuteKey MinuteCount
-
-
 type alias GuardLog =
     Dict GuardId Int
 
@@ -78,50 +73,69 @@ init =
                 |> String.lines
                 |> parseLog
                 |> buildGuardLog
-        guard = Dict.foldl findMax ( "0", -1 ) (Tuple.first logs)
 
-        guardMinutes = Maybe.withDefault [] (Dict.get (Tuple.first guard) (Tuple.second logs))
+        minuteLog =
+            Tuple.second logs
 
-        minuteGroups = List.Extra.gatherEquals guardMinutes
-        sleepiestMinute = List.foldl findSleepiestMinute (0,0) minuteGroups
-        -- sleepyg =
-        --     findSleepyGuard log (Dict.keys log) { guard = "0", totalMinutes = -1, sleepiestMinute = -1 }
+        sleepiestMinutePerGuards =
+            Dict.foldl getSleepiestMinutePerGuard [] minuteLog
+
+        sleepyGuard = List.foldl getSleepiestMinute ("N/A", (0, 0)) sleepiestMinutePerGuards
+
+        guardId = Tuple.first sleepyGuard
+        minute = Tuple.first (Tuple.second sleepyGuard)
     in
-    ( (Tuple.first guard, Tuple.first sleepiestMinute), Cmd.none )
+    ( ( guardId, minute ), Cmd.none )
 
-findSleepiestMinute : (Int, List Int) -> (Int, Int) -> (Int, Int)
-findSleepiestMinute item currMax =
-    if ((List.length (Tuple.second item)) + 1) > (Tuple.second currMax) then
-        (Tuple.first item, (List.length (Tuple.second item)) + 1)
+
+getSleepiestMinute : ( GuardId, ( Int, Int ) ) -> ( GuardId, ( Int, Int ) ) -> ( GuardId, ( Int, Int ) )
+getSleepiestMinute guardInfo currMax =
+    let
+        currCount =
+            Tuple.second (Tuple.second currMax)
+
+        guardCount =
+            Tuple.second (Tuple.second guardInfo)
+    in
+    if guardCount > currCount then
+        guardInfo
+
     else
         currMax
 
 
-addMinutes : Int -> Int -> Int -> Int
-addMinutes _ val aggr =
-    val + aggr
+getSleepiestMinutePerGuard : GuardId -> List Int -> List ( GuardId, ( Int, Int ) ) -> List ( GuardId, ( Int, Int ) )
+getSleepiestMinutePerGuard guard minuteList guardMinuteListAccum =
+    let
+        minuteGroups =
+            List.Extra.gatherEquals minuteList
+
+        sleepiestMinute =
+            List.foldl findSleepiestMinute ( 0, 0 ) minuteGroups
+    in
+    guardMinuteListAccum ++ [ ( guard, sleepiestMinute ) ]
 
 
-findMax : String -> Int -> ( String, Int ) -> ( String, Int )
-findMax k v currmax =
-    if v > Tuple.second currmax then
-        ( k, v )
+findSleepiestMinute : ( Int, List Int ) -> ( Int, Int ) -> ( Int, Int )
+findSleepiestMinute item currMax =
+    if (List.length (Tuple.second item) + 1) > Tuple.second currMax then
+        ( Tuple.first item, List.length (Tuple.second item) + 1 )
 
     else
-        currmax
+        currMax
 
 
-buildGuardLog : List Activity -> (GuardLog, GuardMinuteLog)
+buildGuardLog : List Activity -> ( GuardLog, GuardMinuteLog )
 buildGuardLog acts =
     case acts of
         x :: xs ->
             buildGuardLogHelper x { guard = "", start = 0, end = 0 } Dict.empty Dict.empty xs
 
         [] ->
-            (Dict.empty, Dict.empty)
+            ( Dict.empty, Dict.empty )
 
 
-buildGuardLogHelper : Activity -> GuardStatus -> GuardLog -> GuardMinuteLog -> List Activity -> (GuardLog, GuardMinuteLog)
+buildGuardLogHelper : Activity -> GuardStatus -> GuardLog -> GuardMinuteLog -> List Activity -> ( GuardLog, GuardMinuteLog )
 buildGuardLogHelper act stat currLog currMinLog remainingActs =
     case act of
         Start g l ->
@@ -138,7 +152,7 @@ buildGuardLogHelper act stat currLog currMinLog remainingActs =
                     buildGuardLogHelper x { guard = g, start = 0, end = 0 } newlog currMinLog xs
 
                 [] ->
-                    (newlog, currMinLog)
+                    ( newlog, currMinLog )
 
         FallsAsleep l ->
             case remainingActs of
@@ -146,7 +160,7 @@ buildGuardLogHelper act stat currLog currMinLog remainingActs =
                     buildGuardLogHelper x { stat | start = l.minute } currLog currMinLog xs
 
                 [] ->
-                    (currLog, currMinLog)
+                    ( currLog, currMinLog )
 
         WakesUp l ->
             let
@@ -158,29 +172,34 @@ buildGuardLogHelper act stat currLog currMinLog remainingActs =
 
                 newCurrLog =
                     Dict.insert stat.guard updatedMinutes currLog
-                
-                newMinList = List.range stat.start (l.minute - 1)
 
-                newMinLog = if Dict.member stat.guard currMinLog then
-                                -- add min list to existing value
-                                let
-                                    currMinList = Maybe.withDefault [] (Dict.get stat.guard currMinLog)
-                                    updatedMinList = List.sort (List.append newMinList currMinList)
-                                in
-                                Dict.insert stat.guard updatedMinList currMinLog
-                            else
-                                Dict.insert stat.guard newMinList currMinLog
+                newMinList =
+                    List.range stat.start (l.minute - 1)
+
+                newMinLog =
+                    if Dict.member stat.guard currMinLog then
+                        -- add min list to existing value
+                        let
+                            currMinList =
+                                Maybe.withDefault [] (Dict.get stat.guard currMinLog)
+
+                            updatedMinList =
+                                List.sort (List.append newMinList currMinList)
+                        in
+                        Dict.insert stat.guard updatedMinList currMinLog
+
+                    else
+                        Dict.insert stat.guard newMinList currMinLog
             in
             case remainingActs of
                 x :: xs ->
                     buildGuardLogHelper x { guard = stat.guard, start = 0, end = 0 } newCurrLog newMinLog xs
 
                 [] ->
-                    (newCurrLog, newMinLog)
+                    ( newCurrLog, newMinLog )
 
         NotFoud ->
-            (currLog, currMinLog)
-
+            ( currLog, currMinLog )
 
 
 parseLog : List String -> List Activity
