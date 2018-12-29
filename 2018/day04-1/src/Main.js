@@ -80,6 +80,271 @@ function A9(fun, a, b, c, d, e, f, g, h, i) {
 console.warn('Compiled in DEV mode. Follow the advice at https://elm-lang.org/0.19.0/optimize for better performance and smaller assets.');
 
 
+var _List_Nil_UNUSED = { $: 0 };
+var _List_Nil = { $: '[]' };
+
+function _List_Cons_UNUSED(hd, tl) { return { $: 1, a: hd, b: tl }; }
+function _List_Cons(hd, tl) { return { $: '::', a: hd, b: tl }; }
+
+
+var _List_cons = F2(_List_Cons);
+
+function _List_fromArray(arr)
+{
+	var out = _List_Nil;
+	for (var i = arr.length; i--; )
+	{
+		out = _List_Cons(arr[i], out);
+	}
+	return out;
+}
+
+function _List_toArray(xs)
+{
+	for (var out = []; xs.b; xs = xs.b) // WHILE_CONS
+	{
+		out.push(xs.a);
+	}
+	return out;
+}
+
+var _List_map2 = F3(function(f, xs, ys)
+{
+	for (var arr = []; xs.b && ys.b; xs = xs.b, ys = ys.b) // WHILE_CONSES
+	{
+		arr.push(A2(f, xs.a, ys.a));
+	}
+	return _List_fromArray(arr);
+});
+
+var _List_map3 = F4(function(f, xs, ys, zs)
+{
+	for (var arr = []; xs.b && ys.b && zs.b; xs = xs.b, ys = ys.b, zs = zs.b) // WHILE_CONSES
+	{
+		arr.push(A3(f, xs.a, ys.a, zs.a));
+	}
+	return _List_fromArray(arr);
+});
+
+var _List_map4 = F5(function(f, ws, xs, ys, zs)
+{
+	for (var arr = []; ws.b && xs.b && ys.b && zs.b; ws = ws.b, xs = xs.b, ys = ys.b, zs = zs.b) // WHILE_CONSES
+	{
+		arr.push(A4(f, ws.a, xs.a, ys.a, zs.a));
+	}
+	return _List_fromArray(arr);
+});
+
+var _List_map5 = F6(function(f, vs, ws, xs, ys, zs)
+{
+	for (var arr = []; vs.b && ws.b && xs.b && ys.b && zs.b; vs = vs.b, ws = ws.b, xs = xs.b, ys = ys.b, zs = zs.b) // WHILE_CONSES
+	{
+		arr.push(A5(f, vs.a, ws.a, xs.a, ys.a, zs.a));
+	}
+	return _List_fromArray(arr);
+});
+
+var _List_sortBy = F2(function(f, xs)
+{
+	return _List_fromArray(_List_toArray(xs).sort(function(a, b) {
+		return _Utils_cmp(f(a), f(b));
+	}));
+});
+
+var _List_sortWith = F2(function(f, xs)
+{
+	return _List_fromArray(_List_toArray(xs).sort(function(a, b) {
+		var ord = A2(f, a, b);
+		return ord === elm$core$Basics$EQ ? 0 : ord === elm$core$Basics$LT ? -1 : 1;
+	}));
+});
+
+
+
+// EQUALITY
+
+function _Utils_eq(x, y)
+{
+	for (
+		var pair, stack = [], isEqual = _Utils_eqHelp(x, y, 0, stack);
+		isEqual && (pair = stack.pop());
+		isEqual = _Utils_eqHelp(pair.a, pair.b, 0, stack)
+		)
+	{}
+
+	return isEqual;
+}
+
+function _Utils_eqHelp(x, y, depth, stack)
+{
+	if (depth > 100)
+	{
+		stack.push(_Utils_Tuple2(x,y));
+		return true;
+	}
+
+	if (x === y)
+	{
+		return true;
+	}
+
+	if (typeof x !== 'object' || x === null || y === null)
+	{
+		typeof x === 'function' && _Debug_crash(5);
+		return false;
+	}
+
+	/**/
+	if (x.$ === 'Set_elm_builtin')
+	{
+		x = elm$core$Set$toList(x);
+		y = elm$core$Set$toList(y);
+	}
+	if (x.$ === 'RBNode_elm_builtin' || x.$ === 'RBEmpty_elm_builtin')
+	{
+		x = elm$core$Dict$toList(x);
+		y = elm$core$Dict$toList(y);
+	}
+	//*/
+
+	/**_UNUSED/
+	if (x.$ < 0)
+	{
+		x = elm$core$Dict$toList(x);
+		y = elm$core$Dict$toList(y);
+	}
+	//*/
+
+	for (var key in x)
+	{
+		if (!_Utils_eqHelp(x[key], y[key], depth + 1, stack))
+		{
+			return false;
+		}
+	}
+	return true;
+}
+
+var _Utils_equal = F2(_Utils_eq);
+var _Utils_notEqual = F2(function(a, b) { return !_Utils_eq(a,b); });
+
+
+
+// COMPARISONS
+
+// Code in Generate/JavaScript.hs, Basics.js, and List.js depends on
+// the particular integer values assigned to LT, EQ, and GT.
+
+function _Utils_cmp(x, y, ord)
+{
+	if (typeof x !== 'object')
+	{
+		return x === y ? /*EQ*/ 0 : x < y ? /*LT*/ -1 : /*GT*/ 1;
+	}
+
+	/**/
+	if (x instanceof String)
+	{
+		var a = x.valueOf();
+		var b = y.valueOf();
+		return a === b ? 0 : a < b ? -1 : 1;
+	}
+	//*/
+
+	/**_UNUSED/
+	if (!x.$)
+	//*/
+	/**/
+	if (x.$[0] === '#')
+	//*/
+	{
+		return (ord = _Utils_cmp(x.a, y.a))
+			? ord
+			: (ord = _Utils_cmp(x.b, y.b))
+				? ord
+				: _Utils_cmp(x.c, y.c);
+	}
+
+	// traverse conses until end of a list or a mismatch
+	for (; x.b && y.b && !(ord = _Utils_cmp(x.a, y.a)); x = x.b, y = y.b) {} // WHILE_CONSES
+	return ord || (x.b ? /*GT*/ 1 : y.b ? /*LT*/ -1 : /*EQ*/ 0);
+}
+
+var _Utils_lt = F2(function(a, b) { return _Utils_cmp(a, b) < 0; });
+var _Utils_le = F2(function(a, b) { return _Utils_cmp(a, b) < 1; });
+var _Utils_gt = F2(function(a, b) { return _Utils_cmp(a, b) > 0; });
+var _Utils_ge = F2(function(a, b) { return _Utils_cmp(a, b) >= 0; });
+
+var _Utils_compare = F2(function(x, y)
+{
+	var n = _Utils_cmp(x, y);
+	return n < 0 ? elm$core$Basics$LT : n ? elm$core$Basics$GT : elm$core$Basics$EQ;
+});
+
+
+// COMMON VALUES
+
+var _Utils_Tuple0_UNUSED = 0;
+var _Utils_Tuple0 = { $: '#0' };
+
+function _Utils_Tuple2_UNUSED(a, b) { return { a: a, b: b }; }
+function _Utils_Tuple2(a, b) { return { $: '#2', a: a, b: b }; }
+
+function _Utils_Tuple3_UNUSED(a, b, c) { return { a: a, b: b, c: c }; }
+function _Utils_Tuple3(a, b, c) { return { $: '#3', a: a, b: b, c: c }; }
+
+function _Utils_chr_UNUSED(c) { return c; }
+function _Utils_chr(c) { return new String(c); }
+
+
+// RECORDS
+
+function _Utils_update(oldRecord, updatedFields)
+{
+	var newRecord = {};
+
+	for (var key in oldRecord)
+	{
+		newRecord[key] = oldRecord[key];
+	}
+
+	for (var key in updatedFields)
+	{
+		newRecord[key] = updatedFields[key];
+	}
+
+	return newRecord;
+}
+
+
+// APPEND
+
+var _Utils_append = F2(_Utils_ap);
+
+function _Utils_ap(xs, ys)
+{
+	// append Strings
+	if (typeof xs === 'string')
+	{
+		return xs + ys;
+	}
+
+	// append Lists
+	if (!xs.b)
+	{
+		return ys;
+	}
+	var root = _List_Cons(xs.a, ys);
+	xs = xs.b
+	for (var curr = root; xs.b; xs = xs.b) // WHILE_CONS
+	{
+		curr = curr.b = _List_Cons(xs.a, ys);
+	}
+	return root;
+}
+
+
+
 var _JsArray_empty = [];
 
 function _JsArray_singleton(value)
@@ -228,87 +493,6 @@ var _JsArray_appendN = F3(function(n, dest, source)
     }
 
     return result;
-});
-
-
-
-var _List_Nil_UNUSED = { $: 0 };
-var _List_Nil = { $: '[]' };
-
-function _List_Cons_UNUSED(hd, tl) { return { $: 1, a: hd, b: tl }; }
-function _List_Cons(hd, tl) { return { $: '::', a: hd, b: tl }; }
-
-
-var _List_cons = F2(_List_Cons);
-
-function _List_fromArray(arr)
-{
-	var out = _List_Nil;
-	for (var i = arr.length; i--; )
-	{
-		out = _List_Cons(arr[i], out);
-	}
-	return out;
-}
-
-function _List_toArray(xs)
-{
-	for (var out = []; xs.b; xs = xs.b) // WHILE_CONS
-	{
-		out.push(xs.a);
-	}
-	return out;
-}
-
-var _List_map2 = F3(function(f, xs, ys)
-{
-	for (var arr = []; xs.b && ys.b; xs = xs.b, ys = ys.b) // WHILE_CONSES
-	{
-		arr.push(A2(f, xs.a, ys.a));
-	}
-	return _List_fromArray(arr);
-});
-
-var _List_map3 = F4(function(f, xs, ys, zs)
-{
-	for (var arr = []; xs.b && ys.b && zs.b; xs = xs.b, ys = ys.b, zs = zs.b) // WHILE_CONSES
-	{
-		arr.push(A3(f, xs.a, ys.a, zs.a));
-	}
-	return _List_fromArray(arr);
-});
-
-var _List_map4 = F5(function(f, ws, xs, ys, zs)
-{
-	for (var arr = []; ws.b && xs.b && ys.b && zs.b; ws = ws.b, xs = xs.b, ys = ys.b, zs = zs.b) // WHILE_CONSES
-	{
-		arr.push(A4(f, ws.a, xs.a, ys.a, zs.a));
-	}
-	return _List_fromArray(arr);
-});
-
-var _List_map5 = F6(function(f, vs, ws, xs, ys, zs)
-{
-	for (var arr = []; vs.b && ws.b && xs.b && ys.b && zs.b; vs = vs.b, ws = ws.b, xs = xs.b, ys = ys.b, zs = zs.b) // WHILE_CONSES
-	{
-		arr.push(A5(f, vs.a, ws.a, xs.a, ys.a, zs.a));
-	}
-	return _List_fromArray(arr);
-});
-
-var _List_sortBy = F2(function(f, xs)
-{
-	return _List_fromArray(_List_toArray(xs).sort(function(a, b) {
-		return _Utils_cmp(f(a), f(b));
-	}));
-});
-
-var _List_sortWith = F2(function(f, xs)
-{
-	return _List_fromArray(_List_toArray(xs).sort(function(a, b) {
-		var ord = A2(f, a, b);
-		return ord === elm$core$Basics$EQ ? 0 : ord === elm$core$Basics$LT ? -1 : 1;
-	}));
 });
 
 
@@ -595,190 +779,6 @@ function _Debug_regionToString(region)
 
 
 
-// EQUALITY
-
-function _Utils_eq(x, y)
-{
-	for (
-		var pair, stack = [], isEqual = _Utils_eqHelp(x, y, 0, stack);
-		isEqual && (pair = stack.pop());
-		isEqual = _Utils_eqHelp(pair.a, pair.b, 0, stack)
-		)
-	{}
-
-	return isEqual;
-}
-
-function _Utils_eqHelp(x, y, depth, stack)
-{
-	if (depth > 100)
-	{
-		stack.push(_Utils_Tuple2(x,y));
-		return true;
-	}
-
-	if (x === y)
-	{
-		return true;
-	}
-
-	if (typeof x !== 'object' || x === null || y === null)
-	{
-		typeof x === 'function' && _Debug_crash(5);
-		return false;
-	}
-
-	/**/
-	if (x.$ === 'Set_elm_builtin')
-	{
-		x = elm$core$Set$toList(x);
-		y = elm$core$Set$toList(y);
-	}
-	if (x.$ === 'RBNode_elm_builtin' || x.$ === 'RBEmpty_elm_builtin')
-	{
-		x = elm$core$Dict$toList(x);
-		y = elm$core$Dict$toList(y);
-	}
-	//*/
-
-	/**_UNUSED/
-	if (x.$ < 0)
-	{
-		x = elm$core$Dict$toList(x);
-		y = elm$core$Dict$toList(y);
-	}
-	//*/
-
-	for (var key in x)
-	{
-		if (!_Utils_eqHelp(x[key], y[key], depth + 1, stack))
-		{
-			return false;
-		}
-	}
-	return true;
-}
-
-var _Utils_equal = F2(_Utils_eq);
-var _Utils_notEqual = F2(function(a, b) { return !_Utils_eq(a,b); });
-
-
-
-// COMPARISONS
-
-// Code in Generate/JavaScript.hs, Basics.js, and List.js depends on
-// the particular integer values assigned to LT, EQ, and GT.
-
-function _Utils_cmp(x, y, ord)
-{
-	if (typeof x !== 'object')
-	{
-		return x === y ? /*EQ*/ 0 : x < y ? /*LT*/ -1 : /*GT*/ 1;
-	}
-
-	/**/
-	if (x instanceof String)
-	{
-		var a = x.valueOf();
-		var b = y.valueOf();
-		return a === b ? 0 : a < b ? -1 : 1;
-	}
-	//*/
-
-	/**_UNUSED/
-	if (!x.$)
-	//*/
-	/**/
-	if (x.$[0] === '#')
-	//*/
-	{
-		return (ord = _Utils_cmp(x.a, y.a))
-			? ord
-			: (ord = _Utils_cmp(x.b, y.b))
-				? ord
-				: _Utils_cmp(x.c, y.c);
-	}
-
-	// traverse conses until end of a list or a mismatch
-	for (; x.b && y.b && !(ord = _Utils_cmp(x.a, y.a)); x = x.b, y = y.b) {} // WHILE_CONSES
-	return ord || (x.b ? /*GT*/ 1 : y.b ? /*LT*/ -1 : /*EQ*/ 0);
-}
-
-var _Utils_lt = F2(function(a, b) { return _Utils_cmp(a, b) < 0; });
-var _Utils_le = F2(function(a, b) { return _Utils_cmp(a, b) < 1; });
-var _Utils_gt = F2(function(a, b) { return _Utils_cmp(a, b) > 0; });
-var _Utils_ge = F2(function(a, b) { return _Utils_cmp(a, b) >= 0; });
-
-var _Utils_compare = F2(function(x, y)
-{
-	var n = _Utils_cmp(x, y);
-	return n < 0 ? elm$core$Basics$LT : n ? elm$core$Basics$GT : elm$core$Basics$EQ;
-});
-
-
-// COMMON VALUES
-
-var _Utils_Tuple0_UNUSED = 0;
-var _Utils_Tuple0 = { $: '#0' };
-
-function _Utils_Tuple2_UNUSED(a, b) { return { a: a, b: b }; }
-function _Utils_Tuple2(a, b) { return { $: '#2', a: a, b: b }; }
-
-function _Utils_Tuple3_UNUSED(a, b, c) { return { a: a, b: b, c: c }; }
-function _Utils_Tuple3(a, b, c) { return { $: '#3', a: a, b: b, c: c }; }
-
-function _Utils_chr_UNUSED(c) { return c; }
-function _Utils_chr(c) { return new String(c); }
-
-
-// RECORDS
-
-function _Utils_update(oldRecord, updatedFields)
-{
-	var newRecord = {};
-
-	for (var key in oldRecord)
-	{
-		newRecord[key] = oldRecord[key];
-	}
-
-	for (var key in updatedFields)
-	{
-		newRecord[key] = updatedFields[key];
-	}
-
-	return newRecord;
-}
-
-
-// APPEND
-
-var _Utils_append = F2(_Utils_ap);
-
-function _Utils_ap(xs, ys)
-{
-	// append Strings
-	if (typeof xs === 'string')
-	{
-		return xs + ys;
-	}
-
-	// append Lists
-	if (!xs.b)
-	{
-		return ys;
-	}
-	var root = _List_Cons(xs.a, ys);
-	xs = xs.b
-	for (var curr = root; xs.b; xs = xs.b) // WHILE_CONS
-	{
-		curr = curr.b = _List_Cons(xs.a, ys);
-	}
-	return root;
-}
-
-
-
 // MATH
 
 var _Basics_add = F2(function(a, b) { return a + b; });
@@ -836,55 +836,6 @@ function _Basics_not(bool) { return !bool; }
 var _Basics_and = F2(function(a, b) { return a && b; });
 var _Basics_or  = F2(function(a, b) { return a || b; });
 var _Basics_xor = F2(function(a, b) { return a !== b; });
-
-
-
-function _Char_toCode(char)
-{
-	var code = char.charCodeAt(0);
-	if (0xD800 <= code && code <= 0xDBFF)
-	{
-		return (code - 0xD800) * 0x400 + char.charCodeAt(1) - 0xDC00 + 0x10000
-	}
-	return code;
-}
-
-function _Char_fromCode(code)
-{
-	return _Utils_chr(
-		(code < 0 || 0x10FFFF < code)
-			? '\uFFFD'
-			:
-		(code <= 0xFFFF)
-			? String.fromCharCode(code)
-			:
-		(code -= 0x10000,
-			String.fromCharCode(Math.floor(code / 0x400) + 0xD800)
-			+
-			String.fromCharCode(code % 0x400 + 0xDC00)
-		)
-	);
-}
-
-function _Char_toUpper(char)
-{
-	return _Utils_chr(char.toUpperCase());
-}
-
-function _Char_toLower(char)
-{
-	return _Utils_chr(char.toLowerCase());
-}
-
-function _Char_toLocaleUpper(char)
-{
-	return _Utils_chr(char.toLocaleUpperCase());
-}
-
-function _Char_toLocaleLower(char)
-{
-	return _Utils_chr(char.toLocaleLowerCase());
-}
 
 
 
@@ -1197,6 +1148,55 @@ function _String_fromList(chars)
 	return _List_toArray(chars).join('');
 }
 
+
+
+
+function _Char_toCode(char)
+{
+	var code = char.charCodeAt(0);
+	if (0xD800 <= code && code <= 0xDBFF)
+	{
+		return (code - 0xD800) * 0x400 + char.charCodeAt(1) - 0xDC00 + 0x10000
+	}
+	return code;
+}
+
+function _Char_fromCode(code)
+{
+	return _Utils_chr(
+		(code < 0 || 0x10FFFF < code)
+			? '\uFFFD'
+			:
+		(code <= 0xFFFF)
+			? String.fromCharCode(code)
+			:
+		(code -= 0x10000,
+			String.fromCharCode(Math.floor(code / 0x400) + 0xD800)
+			+
+			String.fromCharCode(code % 0x400 + 0xDC00)
+		)
+	);
+}
+
+function _Char_toUpper(char)
+{
+	return _Utils_chr(char.toUpperCase());
+}
+
+function _Char_toLower(char)
+{
+	return _Utils_chr(char.toLowerCase());
+}
+
+function _Char_toLocaleUpper(char)
+{
+	return _Utils_chr(char.toLocaleUpperCase());
+}
+
+function _Char_toLocaleLower(char)
+{
+	return _Utils_chr(char.toLocaleLowerCase());
+}
 
 
 
@@ -4285,35 +4285,9 @@ function _Browser_load(url)
 		}
 	}));
 }
-var author$project$Main$input = 'dabAcCaCBAcCcaDA';
-var elm$core$Elm$JsArray$foldr = _JsArray_foldr;
-var elm$core$Array$foldr = F3(
-	function (func, baseCase, _n0) {
-		var tree = _n0.c;
-		var tail = _n0.d;
-		var helper = F2(
-			function (node, acc) {
-				if (node.$ === 'SubTree') {
-					var subTree = node.a;
-					return A3(elm$core$Elm$JsArray$foldr, helper, acc, subTree);
-				} else {
-					var values = node.a;
-					return A3(elm$core$Elm$JsArray$foldr, func, acc, values);
-				}
-			});
-		return A3(
-			elm$core$Elm$JsArray$foldr,
-			helper,
-			A3(elm$core$Elm$JsArray$foldr, func, baseCase, tail),
-			tree);
-	});
 var elm$core$Basics$EQ = {$: 'EQ'};
-var elm$core$Basics$LT = {$: 'LT'};
-var elm$core$List$cons = _List_cons;
-var elm$core$Array$toList = function (array) {
-	return A3(elm$core$Array$foldr, elm$core$List$cons, _List_Nil, array);
-};
 var elm$core$Basics$GT = {$: 'GT'};
+var elm$core$Basics$LT = {$: 'LT'};
 var elm$core$Dict$foldr = F3(
 	function (func, acc, t) {
 		foldr:
@@ -4339,6 +4313,7 @@ var elm$core$Dict$foldr = F3(
 			}
 		}
 	});
+var elm$core$List$cons = _List_cons;
 var elm$core$Dict$toList = function (dict) {
 	return A3(
 		elm$core$Dict$foldr,
@@ -4366,45 +4341,189 @@ var elm$core$Set$toList = function (_n0) {
 	var dict = _n0.a;
 	return elm$core$Dict$keys(dict);
 };
-var elm$core$Basics$lt = _Utils_lt;
-var elm$core$Basics$negate = function (n) {
-	return -n;
-};
-var elm$core$Basics$abs = function (n) {
-	return (n < 0) ? (-n) : n;
-};
-var elm$core$Basics$eq = _Utils_equal;
-var elm$core$Basics$sub = _Basics_sub;
-var elm$core$Char$toCode = _Char_toCode;
-var author$project$Main$doCharsReact = F2(
-	function (a, b) {
-		return elm$core$Basics$abs(
-			elm$core$Char$toCode(a) - elm$core$Char$toCode(b)) === 32;
+var elm$core$Elm$JsArray$foldr = _JsArray_foldr;
+var elm$core$Array$foldr = F3(
+	function (func, baseCase, _n0) {
+		var tree = _n0.c;
+		var tail = _n0.d;
+		var helper = F2(
+			function (node, acc) {
+				if (node.$ === 'SubTree') {
+					var subTree = node.a;
+					return A3(elm$core$Elm$JsArray$foldr, helper, acc, subTree);
+				} else {
+					var values = node.a;
+					return A3(elm$core$Elm$JsArray$foldr, func, acc, values);
+				}
+			});
+		return A3(
+			elm$core$Elm$JsArray$foldr,
+			helper,
+			A3(elm$core$Elm$JsArray$foldr, func, baseCase, tail),
+			tree);
 	});
+var elm$core$Array$toList = function (array) {
+	return A3(elm$core$Array$foldr, elm$core$List$cons, _List_Nil, array);
+};
+var elm$core$Basics$add = _Basics_add;
+var elm$core$Basics$sub = _Basics_sub;
+var elm$core$Basics$compare = _Utils_compare;
 var elm$core$Maybe$Just = function (a) {
 	return {$: 'Just', a: a};
 };
 var elm$core$Maybe$Nothing = {$: 'Nothing'};
-var author$project$Main$charToAdd = F2(
-	function (a, b) {
-		return A2(author$project$Main$doCharsReact, a, b) ? elm$core$Maybe$Nothing : elm$core$Maybe$Just(a);
+var elm$core$Dict$get = F2(
+	function (targetKey, dict) {
+		get:
+		while (true) {
+			if (dict.$ === 'RBEmpty_elm_builtin') {
+				return elm$core$Maybe$Nothing;
+			} else {
+				var key = dict.b;
+				var value = dict.c;
+				var left = dict.d;
+				var right = dict.e;
+				var _n1 = A2(elm$core$Basics$compare, targetKey, key);
+				switch (_n1.$) {
+					case 'LT':
+						var $temp$targetKey = targetKey,
+							$temp$dict = left;
+						targetKey = $temp$targetKey;
+						dict = $temp$dict;
+						continue get;
+					case 'EQ':
+						return elm$core$Maybe$Just(value);
+					default:
+						var $temp$targetKey = targetKey,
+							$temp$dict = right;
+						targetKey = $temp$targetKey;
+						dict = $temp$dict;
+						continue get;
+				}
+			}
+		}
 	});
-var elm$core$Basics$apR = F2(
-	function (x, f) {
-		return f(x);
+var elm$core$Dict$Black = {$: 'Black'};
+var elm$core$Dict$RBNode_elm_builtin = F5(
+	function (a, b, c, d, e) {
+		return {$: 'RBNode_elm_builtin', a: a, b: b, c: c, d: d, e: e};
 	});
-var elm$core$Tuple$first = function (_n0) {
-	var x = _n0.a;
-	return x;
-};
-var elm$core$Tuple$second = function (_n0) {
-	var y = _n0.b;
-	return y;
-};
-var turboMaCk$queue$Queue$Queue = F2(
-	function (a, b) {
-		return {$: 'Queue', a: a, b: b};
+var elm$core$Dict$RBEmpty_elm_builtin = {$: 'RBEmpty_elm_builtin'};
+var elm$core$Dict$Red = {$: 'Red'};
+var elm$core$Dict$balance = F5(
+	function (color, key, value, left, right) {
+		if ((right.$ === 'RBNode_elm_builtin') && (right.a.$ === 'Red')) {
+			var _n1 = right.a;
+			var rK = right.b;
+			var rV = right.c;
+			var rLeft = right.d;
+			var rRight = right.e;
+			if ((left.$ === 'RBNode_elm_builtin') && (left.a.$ === 'Red')) {
+				var _n3 = left.a;
+				var lK = left.b;
+				var lV = left.c;
+				var lLeft = left.d;
+				var lRight = left.e;
+				return A5(
+					elm$core$Dict$RBNode_elm_builtin,
+					elm$core$Dict$Red,
+					key,
+					value,
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Black, lK, lV, lLeft, lRight),
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Black, rK, rV, rLeft, rRight));
+			} else {
+				return A5(
+					elm$core$Dict$RBNode_elm_builtin,
+					color,
+					rK,
+					rV,
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Red, key, value, left, rLeft),
+					rRight);
+			}
+		} else {
+			if ((((left.$ === 'RBNode_elm_builtin') && (left.a.$ === 'Red')) && (left.d.$ === 'RBNode_elm_builtin')) && (left.d.a.$ === 'Red')) {
+				var _n5 = left.a;
+				var lK = left.b;
+				var lV = left.c;
+				var _n6 = left.d;
+				var _n7 = _n6.a;
+				var llK = _n6.b;
+				var llV = _n6.c;
+				var llLeft = _n6.d;
+				var llRight = _n6.e;
+				var lRight = left.e;
+				return A5(
+					elm$core$Dict$RBNode_elm_builtin,
+					elm$core$Dict$Red,
+					lK,
+					lV,
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Black, llK, llV, llLeft, llRight),
+					A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Black, key, value, lRight, right));
+			} else {
+				return A5(elm$core$Dict$RBNode_elm_builtin, color, key, value, left, right);
+			}
+		}
 	});
+var elm$core$Dict$insertHelp = F3(
+	function (key, value, dict) {
+		if (dict.$ === 'RBEmpty_elm_builtin') {
+			return A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Red, key, value, elm$core$Dict$RBEmpty_elm_builtin, elm$core$Dict$RBEmpty_elm_builtin);
+		} else {
+			var nColor = dict.a;
+			var nKey = dict.b;
+			var nValue = dict.c;
+			var nLeft = dict.d;
+			var nRight = dict.e;
+			var _n1 = A2(elm$core$Basics$compare, key, nKey);
+			switch (_n1.$) {
+				case 'LT':
+					return A5(
+						elm$core$Dict$balance,
+						nColor,
+						nKey,
+						nValue,
+						A3(elm$core$Dict$insertHelp, key, value, nLeft),
+						nRight);
+				case 'EQ':
+					return A5(elm$core$Dict$RBNode_elm_builtin, nColor, nKey, value, nLeft, nRight);
+				default:
+					return A5(
+						elm$core$Dict$balance,
+						nColor,
+						nKey,
+						nValue,
+						nLeft,
+						A3(elm$core$Dict$insertHelp, key, value, nRight));
+			}
+		}
+	});
+var elm$core$Dict$insert = F3(
+	function (key, value, dict) {
+		var _n0 = A3(elm$core$Dict$insertHelp, key, value, dict);
+		if ((_n0.$ === 'RBNode_elm_builtin') && (_n0.a.$ === 'Red')) {
+			var _n1 = _n0.a;
+			var k = _n0.b;
+			var v = _n0.c;
+			var l = _n0.d;
+			var r = _n0.e;
+			return A5(elm$core$Dict$RBNode_elm_builtin, elm$core$Dict$Black, k, v, l, r);
+		} else {
+			var x = _n0;
+			return x;
+		}
+	});
+var elm$core$Basics$False = {$: 'False'};
+var elm$core$Basics$True = {$: 'True'};
+var elm$core$Dict$member = F2(
+	function (key, dict) {
+		var _n0 = A2(elm$core$Dict$get, key, dict);
+		if (_n0.$ === 'Just') {
+			return true;
+		} else {
+			return false;
+		}
+	});
+var elm$core$Basics$gt = _Utils_gt;
 var elm$core$List$foldl = F3(
 	function (func, acc, list) {
 		foldl:
@@ -4427,46 +4546,222 @@ var elm$core$List$foldl = F3(
 var elm$core$List$reverse = function (list) {
 	return A3(elm$core$List$foldl, elm$core$List$cons, _List_Nil, list);
 };
-var turboMaCk$queue$Queue$queue = F2(
-	function (fl, rl) {
-		if (!fl.b) {
-			return A2(
-				turboMaCk$queue$Queue$Queue,
-				elm$core$List$reverse(rl),
-				_List_Nil);
+var elm$core$List$foldrHelper = F4(
+	function (fn, acc, ctr, ls) {
+		if (!ls.b) {
+			return acc;
 		} else {
-			return A2(turboMaCk$queue$Queue$Queue, fl, rl);
+			var a = ls.a;
+			var r1 = ls.b;
+			if (!r1.b) {
+				return A2(fn, a, acc);
+			} else {
+				var b = r1.a;
+				var r2 = r1.b;
+				if (!r2.b) {
+					return A2(
+						fn,
+						a,
+						A2(fn, b, acc));
+				} else {
+					var c = r2.a;
+					var r3 = r2.b;
+					if (!r3.b) {
+						return A2(
+							fn,
+							a,
+							A2(
+								fn,
+								b,
+								A2(fn, c, acc)));
+					} else {
+						var d = r3.a;
+						var r4 = r3.b;
+						var res = (ctr > 500) ? A3(
+							elm$core$List$foldl,
+							fn,
+							acc,
+							elm$core$List$reverse(r4)) : A4(elm$core$List$foldrHelper, fn, acc, ctr + 1, r4);
+						return A2(
+							fn,
+							a,
+							A2(
+								fn,
+								b,
+								A2(
+									fn,
+									c,
+									A2(fn, d, res))));
+					}
+				}
+			}
 		}
 	});
-var turboMaCk$queue$Queue$dequeue = function (_n0) {
-	var fl = _n0.a;
-	var rl = _n0.b;
-	if (!fl.b) {
-		return _Utils_Tuple2(
-			elm$core$Maybe$Nothing,
-			A2(turboMaCk$queue$Queue$Queue, _List_Nil, _List_Nil));
+var elm$core$List$foldr = F3(
+	function (fn, acc, ls) {
+		return A4(elm$core$List$foldrHelper, fn, acc, 0, ls);
+	});
+var elm$core$List$append = F2(
+	function (xs, ys) {
+		if (!ys.b) {
+			return xs;
+		} else {
+			return A3(elm$core$List$foldr, elm$core$List$cons, ys, xs);
+		}
+	});
+var elm$core$Basics$le = _Utils_le;
+var elm$core$List$rangeHelp = F3(
+	function (lo, hi, list) {
+		rangeHelp:
+		while (true) {
+			if (_Utils_cmp(lo, hi) < 1) {
+				var $temp$lo = lo,
+					$temp$hi = hi - 1,
+					$temp$list = A2(elm$core$List$cons, hi, list);
+				lo = $temp$lo;
+				hi = $temp$hi;
+				list = $temp$list;
+				continue rangeHelp;
+			} else {
+				return list;
+			}
+		}
+	});
+var elm$core$List$range = F2(
+	function (lo, hi) {
+		return A3(elm$core$List$rangeHelp, lo, hi, _List_Nil);
+	});
+var elm$core$Basics$identity = function (x) {
+	return x;
+};
+var elm$core$List$sortBy = _List_sortBy;
+var elm$core$List$sort = function (xs) {
+	return A2(elm$core$List$sortBy, elm$core$Basics$identity, xs);
+};
+var elm$core$Maybe$withDefault = F2(
+	function (_default, maybe) {
+		if (maybe.$ === 'Just') {
+			var value = maybe.a;
+			return value;
+		} else {
+			return _default;
+		}
+	});
+var author$project$Main$buildGuardLogHelper = F5(
+	function (act, stat, currLog, currMinLog, remainingActs) {
+		buildGuardLogHelper:
+		while (true) {
+			switch (act.$) {
+				case 'Start':
+					var g = act.a;
+					var l = act.b;
+					var newlog = A2(elm$core$Dict$member, g, currLog) ? currLog : A3(elm$core$Dict$insert, g, 0, currLog);
+					if (remainingActs.b) {
+						var x = remainingActs.a;
+						var xs = remainingActs.b;
+						var $temp$act = x,
+							$temp$stat = {end: 0, guard: g, start: 0},
+							$temp$currLog = newlog,
+							$temp$currMinLog = currMinLog,
+							$temp$remainingActs = xs;
+						act = $temp$act;
+						stat = $temp$stat;
+						currLog = $temp$currLog;
+						currMinLog = $temp$currMinLog;
+						remainingActs = $temp$remainingActs;
+						continue buildGuardLogHelper;
+					} else {
+						return _Utils_Tuple2(newlog, currMinLog);
+					}
+				case 'FallsAsleep':
+					var l = act.a;
+					if (remainingActs.b) {
+						var x = remainingActs.a;
+						var xs = remainingActs.b;
+						var $temp$act = x,
+							$temp$stat = _Utils_update(
+							stat,
+							{start: l.minute}),
+							$temp$currLog = currLog,
+							$temp$currMinLog = currMinLog,
+							$temp$remainingActs = xs;
+						act = $temp$act;
+						stat = $temp$stat;
+						currLog = $temp$currLog;
+						currMinLog = $temp$currMinLog;
+						remainingActs = $temp$remainingActs;
+						continue buildGuardLogHelper;
+					} else {
+						return _Utils_Tuple2(currLog, currMinLog);
+					}
+				case 'WakesUp':
+					var l = act.a;
+					var newMinList = A2(elm$core$List$range, stat.start, l.minute - 1);
+					var newMinLog = function () {
+						if (A2(elm$core$Dict$member, stat.guard, currMinLog)) {
+							var currMinList = A2(
+								elm$core$Maybe$withDefault,
+								_List_Nil,
+								A2(elm$core$Dict$get, stat.guard, currMinLog));
+							var updatedMinList = elm$core$List$sort(
+								A2(elm$core$List$append, newMinList, currMinList));
+							return A3(elm$core$Dict$insert, stat.guard, updatedMinList, currMinLog);
+						} else {
+							return A3(elm$core$Dict$insert, stat.guard, newMinList, currMinLog);
+						}
+					}();
+					var minutes = A2(
+						elm$core$Maybe$withDefault,
+						0,
+						A2(elm$core$Dict$get, stat.guard, currLog));
+					var updatedMinutes = minutes + (l.minute - stat.start);
+					var newCurrLog = A3(elm$core$Dict$insert, stat.guard, updatedMinutes, currLog);
+					if (remainingActs.b) {
+						var x = remainingActs.a;
+						var xs = remainingActs.b;
+						var $temp$act = x,
+							$temp$stat = {end: 0, guard: stat.guard, start: 0},
+							$temp$currLog = newCurrLog,
+							$temp$currMinLog = newMinLog,
+							$temp$remainingActs = xs;
+						act = $temp$act;
+						stat = $temp$stat;
+						currLog = $temp$currLog;
+						currMinLog = $temp$currMinLog;
+						remainingActs = $temp$remainingActs;
+						continue buildGuardLogHelper;
+					} else {
+						return _Utils_Tuple2(newCurrLog, newMinLog);
+					}
+				default:
+					return _Utils_Tuple2(currLog, currMinLog);
+			}
+		}
+	});
+var elm$core$Dict$empty = elm$core$Dict$RBEmpty_elm_builtin;
+var author$project$Main$buildGuardLog = function (acts) {
+	if (acts.b) {
+		var x = acts.a;
+		var xs = acts.b;
+		return A5(
+			author$project$Main$buildGuardLogHelper,
+			x,
+			{end: 0, guard: '', start: 0},
+			elm$core$Dict$empty,
+			elm$core$Dict$empty,
+			xs);
 	} else {
-		var head = fl.a;
-		var tail = fl.b;
-		return _Utils_Tuple2(
-			elm$core$Maybe$Just(head),
-			A2(turboMaCk$queue$Queue$queue, tail, rl));
+		return _Utils_Tuple2(elm$core$Dict$empty, elm$core$Dict$empty);
 	}
 };
-var elm$core$Basics$apL = F2(
-	function (f, x) {
-		return f(x);
+var elm$core$Tuple$second = function (_n0) {
+	var y = _n0.b;
+	return y;
+};
+var author$project$Main$findMax = F3(
+	function (k, v, currmax) {
+		return (_Utils_cmp(v, currmax.b) > 0) ? _Utils_Tuple2(k, v) : currmax;
 	});
-var turboMaCk$queue$Queue$enqueue = F2(
-	function (a, _n0) {
-		var fl = _n0.a;
-		var rl = _n0.b;
-		return A2(
-			turboMaCk$queue$Queue$queue,
-			fl,
-			A2(elm$core$List$cons, a, rl));
-	});
-var elm$core$Basics$add = _Basics_add;
 var elm$core$List$length = function (xs) {
 	return A3(
 		elm$core$List$foldl,
@@ -4477,146 +4772,107 @@ var elm$core$List$length = function (xs) {
 		0,
 		xs);
 };
-var turboMaCk$queue$Queue$size = function (_n0) {
-	var fl = _n0.a;
-	var rl = _n0.b;
-	return elm$core$List$length(fl) + elm$core$List$length(rl);
+var elm$core$Tuple$first = function (_n0) {
+	var x = _n0.a;
+	return x;
 };
-var author$project$Main$reduceCodeHelper = F4(
-	function (a, b, q, currQ) {
-		reduceCodeHelper:
-		while (true) {
-			var _n0 = turboMaCk$queue$Queue$size(q);
-			switch (_n0) {
-				case 0:
-					return currQ;
-				case 1:
-					var qItem = turboMaCk$queue$Queue$dequeue(q).a;
-					if (qItem.$ === 'Just') {
-						var aQItem = qItem.a;
-						return A2(turboMaCk$queue$Queue$enqueue, aQItem, currQ);
-					} else {
-						var option2 = qItem;
-						return currQ;
-					}
-				default:
-					var mayB = A2(author$project$Main$charToAdd, a, b);
-					var newQ = function () {
-						if (mayB.$ === 'Just') {
-							var aChar = mayB.a;
-							return A2(turboMaCk$queue$Queue$enqueue, aChar, currQ);
-						} else {
-							return currQ;
-						}
-					}();
-					var item1 = turboMaCk$queue$Queue$dequeue(q);
-					var item2 = turboMaCk$queue$Queue$dequeue(item1.b);
-					if (mayB.$ === 'Just') {
-						var aB = mayB.a;
-						var newB = function () {
-							var _n3 = item1.a;
-							if (_n3.$ === 'Just') {
-								var aA = _n3.a;
-								return aA;
-							} else {
-								return _Utils_chr('$');
-							}
-						}();
-						var newA = b;
-						var $temp$a = newA,
-							$temp$b = newB,
-							$temp$q = item1.b,
-							$temp$currQ = newQ;
-						a = $temp$a;
-						b = $temp$b;
-						q = $temp$q;
-						currQ = $temp$currQ;
-						continue reduceCodeHelper;
-					} else {
-						var newB1 = function () {
-							var _n5 = item2.a;
-							if (_n5.$ === 'Just') {
-								var aB1 = _n5.a;
-								return aB1;
-							} else {
-								return _Utils_chr('$');
-							}
-						}();
-						var newA1 = function () {
-							var _n4 = item1.a;
-							if (_n4.$ === 'Just') {
-								var aA1 = _n4.a;
-								return aA1;
-							} else {
-								return _Utils_chr('$');
-							}
-						}();
-						var $temp$a = newA1,
-							$temp$b = newB1,
-							$temp$q = item2.b,
-							$temp$currQ = newQ;
-						a = $temp$a;
-						b = $temp$b;
-						q = $temp$q;
-						currQ = $temp$currQ;
-						continue reduceCodeHelper;
-					}
-			}
-		}
+var author$project$Main$findSleepiestMinute = F2(
+	function (item, currMax) {
+		return (_Utils_cmp(
+			elm$core$List$length(item.b) + 1,
+			currMax.b) > 0) ? _Utils_Tuple2(
+			item.a,
+			elm$core$List$length(item.b) + 1) : currMax;
 	});
-var elm$core$Basics$append = _Utils_append;
-var turboMaCk$queue$Queue$toList = function (_n0) {
-	var fl = _n0.a;
-	var rl = _n0.b;
-	return _Utils_ap(
-		fl,
-		elm$core$List$reverse(rl));
+var author$project$Main$input = '[1518-02-24 23:58] Guard #853 begins shift\n[1518-02-25 00:20] falls asleep\n[1518-02-25 00:43] wakes up\n[1518-02-25 23:56] Guard #3499 begins shift\n[1518-02-26 00:11] falls asleep\n[1518-02-26 00:19] wakes up\n[1518-02-26 00:37] falls asleep\n[1518-02-26 00:44] wakes up\n[1518-02-26 00:53] falls asleep\n[1518-02-26 00:58] wakes up\n[1518-02-26 23:59] Guard #223 begins shift\n[1518-02-27 00:10] falls asleep\n[1518-02-27 00:30] wakes up\n[1518-02-28 00:00] Guard #3499 begins shift\n[1518-02-28 00:06] falls asleep\n[1518-02-28 00:53] wakes up\n[1518-02-28 23:56] Guard #727 begins shift\n[1518-03-01 00:24] falls asleep\n[1518-03-01 00:33] wakes up\n[1518-03-01 00:48] falls asleep\n[1518-03-01 00:49] wakes up\n[1518-03-01 23:53] Guard #1877 begins shift\n[1518-03-02 00:01] falls asleep\n[1518-03-02 00:53] wakes up\n[1518-03-03 00:03] Guard #223 begins shift\n[1518-03-03 00:31] falls asleep\n[1518-03-03 00:57] wakes up\n[1518-03-03 23:57] Guard #3467 begins shift\n[1518-03-04 00:31] falls asleep\n[1518-03-04 00:49] wakes up\n[1518-03-04 23:47] Guard #1877 begins shift\n[1518-03-05 00:00] falls asleep\n[1518-03-05 00:17] wakes up\n[1518-03-05 00:36] falls asleep\n[1518-03-05 00:39] wakes up\n[1518-03-05 23:57] Guard #761 begins shift\n[1518-03-06 00:42] falls asleep\n[1518-03-06 00:44] wakes up\n[1518-03-07 00:01] Guard #1949 begins shift\n[1518-03-07 00:33] falls asleep\n[1518-03-07 00:47] wakes up\n[1518-03-07 23:50] Guard #1193 begins shift\n[1518-03-08 00:05] falls asleep\n[1518-03-08 00:14] wakes up\n[1518-03-08 00:30] falls asleep\n[1518-03-08 00:55] wakes up\n[1518-03-08 23:52] Guard #761 begins shift\n[1518-03-09 00:05] falls asleep\n[1518-03-09 00:34] wakes up\n[1518-03-09 00:41] falls asleep\n[1518-03-09 00:53] wakes up\n[1518-03-09 23:59] Guard #647 begins shift\n[1518-03-10 00:25] falls asleep\n[1518-03-10 00:26] wakes up\n[1518-03-10 00:29] falls asleep\n[1518-03-10 00:48] wakes up\n[1518-03-11 00:00] Guard #1657 begins shift\n[1518-03-11 00:32] falls asleep\n[1518-03-11 00:37] wakes up\n[1518-03-11 00:43] falls asleep\n[1518-03-11 00:53] wakes up\n[1518-03-11 23:58] Guard #1129 begins shift\n[1518-03-12 00:14] falls asleep\n[1518-03-12 00:45] wakes up\n[1518-03-12 23:56] Guard #3137 begins shift\n[1518-03-13 00:18] falls asleep\n[1518-03-13 00:41] wakes up\n[1518-03-13 00:49] falls asleep\n[1518-03-13 00:55] wakes up\n[1518-03-13 23:57] Guard #653 begins shift\n[1518-03-14 00:18] falls asleep\n[1518-03-14 00:52] wakes up\n[1518-03-14 23:57] Guard #2503 begins shift\n[1518-03-15 00:32] falls asleep\n[1518-03-15 00:39] wakes up\n[1518-03-16 00:04] Guard #2011 begins shift\n[1518-03-16 00:47] falls asleep\n[1518-03-16 00:58] wakes up\n[1518-03-16 23:56] Guard #647 begins shift\n[1518-03-17 00:13] falls asleep\n[1518-03-17 00:44] wakes up\n[1518-03-17 23:59] Guard #3467 begins shift\n[1518-03-18 00:09] falls asleep\n[1518-03-18 00:18] wakes up\n[1518-03-19 00:03] Guard #1129 begins shift\n[1518-03-19 00:18] falls asleep\n[1518-03-19 00:24] wakes up\n[1518-03-19 00:32] falls asleep\n[1518-03-19 00:49] wakes up\n[1518-03-20 00:04] Guard #653 begins shift\n[1518-03-20 00:44] falls asleep\n[1518-03-20 00:56] wakes up\n[1518-03-20 23:58] Guard #2579 begins shift\n[1518-03-21 00:26] falls asleep\n[1518-03-21 00:33] wakes up\n[1518-03-21 00:41] falls asleep\n[1518-03-21 00:42] wakes up\n[1518-03-21 23:59] Guard #2011 begins shift\n[1518-03-22 00:28] falls asleep\n[1518-03-22 00:30] wakes up\n[1518-03-22 00:36] falls asleep\n[1518-03-22 00:58] wakes up\n[1518-03-22 23:57] Guard #1129 begins shift\n[1518-03-23 00:30] falls asleep\n[1518-03-23 00:42] wakes up\n[1518-03-23 00:56] falls asleep\n[1518-03-23 00:59] wakes up\n[1518-03-24 00:00] Guard #1657 begins shift\n[1518-03-24 00:30] falls asleep\n[1518-03-24 00:35] wakes up\n[1518-03-24 00:52] falls asleep\n[1518-03-24 00:56] wakes up\n[1518-03-24 23:59] Guard #761 begins shift\n[1518-03-25 00:26] falls asleep\n[1518-03-25 00:45] wakes up\n[1518-03-25 23:48] Guard #853 begins shift\n[1518-03-26 00:00] falls asleep\n[1518-03-26 00:52] wakes up\n[1518-03-26 23:59] Guard #223 begins shift\n[1518-03-27 00:10] falls asleep\n[1518-03-27 00:39] wakes up\n[1518-03-27 23:51] Guard #1877 begins shift\n[1518-03-28 00:05] falls asleep\n[1518-03-28 00:37] wakes up\n[1518-03-28 00:42] falls asleep\n[1518-03-28 00:55] wakes up\n[1518-03-28 23:56] Guard #3467 begins shift\n[1518-03-29 00:08] falls asleep\n[1518-03-29 00:37] wakes up\n[1518-03-29 00:44] falls asleep\n[1518-03-29 00:46] wakes up\n[1518-03-29 00:52] falls asleep\n[1518-03-29 00:57] wakes up\n[1518-03-29 23:58] Guard #1657 begins shift\n[1518-03-30 00:06] falls asleep\n[1518-03-30 00:19] wakes up\n[1518-03-30 00:24] falls asleep\n[1518-03-30 00:54] wakes up\n[1518-03-30 23:59] Guard #1193 begins shift\n[1518-03-31 00:32] falls asleep\n[1518-03-31 00:41] wakes up\n[1518-03-31 00:50] falls asleep\n[1518-03-31 00:56] wakes up\n[1518-04-01 00:00] Guard #727 begins shift\n[1518-04-01 00:25] falls asleep\n[1518-04-01 00:26] wakes up\n[1518-04-02 00:04] Guard #311 begins shift\n[1518-04-02 00:51] falls asleep\n[1518-04-02 00:52] wakes up\n[1518-04-02 23:58] Guard #311 begins shift\n[1518-04-03 00:51] falls asleep\n[1518-04-03 00:55] wakes up\n[1518-04-03 23:59] Guard #1657 begins shift\n[1518-04-04 00:28] falls asleep\n[1518-04-04 00:33] wakes up\n[1518-04-04 00:37] falls asleep\n[1518-04-04 00:59] wakes up\n[1518-04-04 23:57] Guard #2503 begins shift\n[1518-04-05 00:24] falls asleep\n[1518-04-05 00:42] wakes up\n[1518-04-05 00:48] falls asleep\n[1518-04-05 00:49] wakes up\n[1518-04-05 23:46] Guard #1129 begins shift\n[1518-04-06 00:05] falls asleep\n[1518-04-06 00:59] wakes up\n[1518-04-07 00:02] Guard #2503 begins shift\n[1518-04-07 00:10] falls asleep\n[1518-04-07 00:22] wakes up\n[1518-04-07 00:37] falls asleep\n[1518-04-07 00:57] wakes up\n[1518-04-07 23:57] Guard #311 begins shift\n[1518-04-08 00:39] falls asleep\n[1518-04-08 00:50] wakes up\n[1518-04-08 00:54] falls asleep\n[1518-04-08 00:59] wakes up\n[1518-04-08 23:56] Guard #1129 begins shift\n[1518-04-09 00:30] falls asleep\n[1518-04-09 00:46] wakes up\n[1518-04-10 00:03] Guard #2579 begins shift\n[1518-04-10 00:32] falls asleep\n[1518-04-10 00:33] wakes up\n[1518-04-10 00:57] falls asleep\n[1518-04-10 00:58] wakes up\n[1518-04-11 00:00] Guard #1949 begins shift\n[1518-04-11 00:09] falls asleep\n[1518-04-11 00:29] wakes up\n[1518-04-11 00:32] falls asleep\n[1518-04-11 00:42] wakes up\n[1518-04-11 00:47] falls asleep\n[1518-04-11 00:59] wakes up\n[1518-04-12 00:02] Guard #853 begins shift\n[1518-04-12 00:09] falls asleep\n[1518-04-12 00:14] wakes up\n[1518-04-12 00:23] falls asleep\n[1518-04-12 00:57] wakes up\n[1518-04-13 00:01] Guard #2503 begins shift\n[1518-04-13 00:15] falls asleep\n[1518-04-13 00:20] wakes up\n[1518-04-13 00:37] falls asleep\n[1518-04-13 00:50] wakes up\n[1518-04-14 00:04] Guard #2011 begins shift\n[1518-04-14 00:14] falls asleep\n[1518-04-14 00:27] wakes up\n[1518-04-14 00:48] falls asleep\n[1518-04-14 00:54] wakes up\n[1518-04-14 23:56] Guard #1129 begins shift\n[1518-04-15 00:07] falls asleep\n[1518-04-15 00:56] wakes up\n[1518-04-15 23:59] Guard #223 begins shift\n[1518-04-16 00:43] falls asleep\n[1518-04-16 00:56] wakes up\n[1518-04-16 23:58] Guard #2579 begins shift\n[1518-04-17 00:33] falls asleep\n[1518-04-17 00:58] wakes up\n[1518-04-17 23:57] Guard #223 begins shift\n[1518-04-18 00:13] falls asleep\n[1518-04-18 00:32] wakes up\n[1518-04-18 00:48] falls asleep\n[1518-04-18 00:52] wakes up\n[1518-04-19 00:04] Guard #223 begins shift\n[1518-04-19 00:10] falls asleep\n[1518-04-19 00:14] wakes up\n[1518-04-19 00:22] falls asleep\n[1518-04-19 00:32] wakes up\n[1518-04-19 00:48] falls asleep\n[1518-04-19 00:55] wakes up\n[1518-04-19 23:57] Guard #1193 begins shift\n[1518-04-20 00:11] falls asleep\n[1518-04-20 00:42] wakes up\n[1518-04-20 23:56] Guard #853 begins shift\n[1518-04-21 00:35] falls asleep\n[1518-04-21 00:58] wakes up\n[1518-04-22 00:03] Guard #3467 begins shift\n[1518-04-22 00:34] falls asleep\n[1518-04-22 00:55] wakes up\n[1518-04-23 00:01] Guard #311 begins shift\n[1518-04-23 00:17] falls asleep\n[1518-04-23 00:27] wakes up\n[1518-04-23 00:49] falls asleep\n[1518-04-23 00:58] wakes up\n[1518-04-24 00:03] Guard #647 begins shift\n[1518-04-24 00:18] falls asleep\n[1518-04-24 00:57] wakes up\n[1518-04-25 00:03] Guard #2011 begins shift\n[1518-04-25 00:44] falls asleep\n[1518-04-25 00:50] wakes up\n[1518-04-26 00:00] Guard #1193 begins shift\n[1518-04-26 00:07] falls asleep\n[1518-04-26 00:32] wakes up\n[1518-04-26 23:59] Guard #311 begins shift\n[1518-04-27 00:41] falls asleep\n[1518-04-27 00:47] wakes up\n[1518-04-27 23:58] Guard #2719 begins shift\n[1518-04-28 00:17] falls asleep\n[1518-04-28 00:28] wakes up\n[1518-04-28 00:31] falls asleep\n[1518-04-28 00:44] wakes up\n[1518-04-29 00:00] Guard #1657 begins shift\n[1518-04-29 00:31] falls asleep\n[1518-04-29 00:36] wakes up\n[1518-04-29 00:55] falls asleep\n[1518-04-29 00:57] wakes up\n[1518-04-30 00:00] Guard #3137 begins shift\n[1518-04-30 00:14] falls asleep\n[1518-04-30 00:52] wakes up\n[1518-04-30 23:46] Guard #1949 begins shift\n[1518-05-01 00:00] falls asleep\n[1518-05-01 00:56] wakes up\n[1518-05-02 00:01] Guard #1877 begins shift\n[1518-05-02 00:28] falls asleep\n[1518-05-02 00:39] wakes up\n[1518-05-02 00:47] falls asleep\n[1518-05-02 00:50] wakes up\n[1518-05-02 23:57] Guard #647 begins shift\n[1518-05-03 00:06] falls asleep\n[1518-05-03 00:24] wakes up\n[1518-05-03 00:34] falls asleep\n[1518-05-03 00:46] wakes up\n[1518-05-03 00:54] falls asleep\n[1518-05-03 00:57] wakes up\n[1518-05-04 00:03] Guard #3137 begins shift\n[1518-05-04 00:51] falls asleep\n[1518-05-04 00:59] wakes up\n[1518-05-05 00:04] Guard #2011 begins shift\n[1518-05-05 00:12] falls asleep\n[1518-05-05 00:48] wakes up\n[1518-05-05 23:50] Guard #647 begins shift\n[1518-05-06 00:00] falls asleep\n[1518-05-06 00:58] wakes up\n[1518-05-07 00:04] Guard #1433 begins shift\n[1518-05-07 00:13] falls asleep\n[1518-05-07 00:24] wakes up\n[1518-05-08 00:03] Guard #761 begins shift\n[1518-05-08 00:41] falls asleep\n[1518-05-08 00:46] wakes up\n[1518-05-08 23:58] Guard #2503 begins shift\n[1518-05-09 00:13] falls asleep\n[1518-05-09 00:47] wakes up\n[1518-05-10 00:03] Guard #3467 begins shift\n[1518-05-10 00:43] falls asleep\n[1518-05-10 00:44] wakes up\n[1518-05-10 00:52] falls asleep\n[1518-05-10 00:53] wakes up\n[1518-05-10 23:58] Guard #647 begins shift\n[1518-05-11 00:14] falls asleep\n[1518-05-11 00:32] wakes up\n[1518-05-11 23:58] Guard #647 begins shift\n[1518-05-12 00:34] falls asleep\n[1518-05-12 00:45] wakes up\n[1518-05-12 00:53] falls asleep\n[1518-05-12 00:57] wakes up\n[1518-05-13 00:04] Guard #1129 begins shift\n[1518-05-13 00:18] falls asleep\n[1518-05-13 00:37] wakes up\n[1518-05-13 00:48] falls asleep\n[1518-05-13 00:52] wakes up\n[1518-05-13 23:53] Guard #727 begins shift\n[1518-05-14 00:01] falls asleep\n[1518-05-14 00:31] wakes up\n[1518-05-14 00:40] falls asleep\n[1518-05-14 00:44] wakes up\n[1518-05-14 23:57] Guard #2719 begins shift\n[1518-05-15 00:30] falls asleep\n[1518-05-15 00:40] wakes up\n[1518-05-15 00:48] falls asleep\n[1518-05-15 00:56] wakes up\n[1518-05-16 00:00] Guard #1657 begins shift\n[1518-05-16 00:29] falls asleep\n[1518-05-16 00:42] wakes up\n[1518-05-16 23:56] Guard #1949 begins shift\n[1518-05-17 00:10] falls asleep\n[1518-05-17 00:32] wakes up\n[1518-05-17 00:48] falls asleep\n[1518-05-17 00:49] wakes up\n[1518-05-18 00:00] Guard #3499 begins shift\n[1518-05-18 00:27] falls asleep\n[1518-05-18 00:35] wakes up\n[1518-05-18 00:46] falls asleep\n[1518-05-18 00:58] wakes up\n[1518-05-18 23:58] Guard #1433 begins shift\n[1518-05-19 00:24] falls asleep\n[1518-05-19 00:29] wakes up\n[1518-05-19 23:49] Guard #2719 begins shift\n[1518-05-20 00:04] falls asleep\n[1518-05-20 00:23] wakes up\n[1518-05-21 00:01] Guard #3467 begins shift\n[1518-05-21 00:32] falls asleep\n[1518-05-21 00:50] wakes up\n[1518-05-22 00:02] Guard #761 begins shift\n[1518-05-22 00:44] falls asleep\n[1518-05-22 00:53] wakes up\n[1518-05-22 23:56] Guard #2579 begins shift\n[1518-05-23 00:26] falls asleep\n[1518-05-23 00:38] wakes up\n[1518-05-23 23:58] Guard #2579 begins shift\n[1518-05-24 00:13] falls asleep\n[1518-05-24 00:14] wakes up\n[1518-05-24 00:39] falls asleep\n[1518-05-24 00:40] wakes up\n[1518-05-25 00:03] Guard #727 begins shift\n[1518-05-25 00:15] falls asleep\n[1518-05-25 00:46] wakes up\n[1518-05-25 23:56] Guard #1877 begins shift\n[1518-05-26 00:19] falls asleep\n[1518-05-26 00:59] wakes up\n[1518-05-27 00:00] Guard #1193 begins shift\n[1518-05-27 00:29] falls asleep\n[1518-05-27 00:51] wakes up\n[1518-05-27 23:57] Guard #1129 begins shift\n[1518-05-28 00:10] falls asleep\n[1518-05-28 00:35] wakes up\n[1518-05-29 00:01] Guard #727 begins shift\n[1518-05-29 00:10] falls asleep\n[1518-05-29 00:49] wakes up\n[1518-05-29 23:47] Guard #1657 begins shift\n[1518-05-30 00:01] falls asleep\n[1518-05-30 00:35] wakes up\n[1518-05-30 23:59] Guard #2503 begins shift\n[1518-05-31 00:38] falls asleep\n[1518-05-31 00:39] wakes up\n[1518-05-31 00:50] falls asleep\n[1518-05-31 00:54] wakes up\n[1518-05-31 00:57] falls asleep\n[1518-05-31 00:58] wakes up\n[1518-06-01 00:04] Guard #1129 begins shift\n[1518-06-01 00:21] falls asleep\n[1518-06-01 00:43] wakes up\n[1518-06-01 00:54] falls asleep\n[1518-06-01 00:57] wakes up\n[1518-06-01 23:56] Guard #223 begins shift\n[1518-06-02 00:26] falls asleep\n[1518-06-02 00:52] wakes up\n[1518-06-03 00:00] Guard #1193 begins shift\n[1518-06-03 00:34] falls asleep\n[1518-06-03 00:35] wakes up\n[1518-06-03 00:47] falls asleep\n[1518-06-03 00:51] wakes up\n[1518-06-04 00:00] Guard #3499 begins shift\n[1518-06-04 00:24] falls asleep\n[1518-06-04 00:25] wakes up\n[1518-06-05 00:04] Guard #223 begins shift\n[1518-06-05 00:17] falls asleep\n[1518-06-05 00:24] wakes up\n[1518-06-05 00:32] falls asleep\n[1518-06-05 00:59] wakes up\n[1518-06-06 00:04] Guard #2579 begins shift\n[1518-06-06 00:21] falls asleep\n[1518-06-06 00:29] wakes up\n[1518-06-06 23:58] Guard #2503 begins shift\n[1518-06-07 00:10] falls asleep\n[1518-06-07 00:36] wakes up\n[1518-06-08 00:04] Guard #2719 begins shift\n[1518-06-08 00:24] falls asleep\n[1518-06-08 00:28] wakes up\n[1518-06-08 00:36] falls asleep\n[1518-06-08 00:38] wakes up\n[1518-06-09 00:01] Guard #223 begins shift\n[1518-06-09 00:48] falls asleep\n[1518-06-09 00:59] wakes up\n[1518-06-09 23:58] Guard #1949 begins shift\n[1518-06-10 00:14] falls asleep\n[1518-06-10 00:46] wakes up\n[1518-06-11 00:00] Guard #2719 begins shift\n[1518-06-11 00:41] falls asleep\n[1518-06-11 00:48] wakes up\n[1518-06-11 23:56] Guard #3137 begins shift\n[1518-06-12 00:53] falls asleep\n[1518-06-12 00:58] wakes up\n[1518-06-13 00:01] Guard #1129 begins shift\n[1518-06-13 00:20] falls asleep\n[1518-06-13 00:49] wakes up\n[1518-06-14 00:04] Guard #1949 begins shift\n[1518-06-14 00:29] falls asleep\n[1518-06-14 00:56] wakes up\n[1518-06-15 00:03] Guard #653 begins shift\n[1518-06-15 00:14] falls asleep\n[1518-06-15 00:56] wakes up\n[1518-06-16 00:02] Guard #2503 begins shift\n[1518-06-16 00:10] falls asleep\n[1518-06-16 00:23] wakes up\n[1518-06-17 00:01] Guard #3137 begins shift\n[1518-06-17 00:16] falls asleep\n[1518-06-17 00:50] wakes up\n[1518-06-18 00:00] Guard #853 begins shift\n[1518-06-18 00:25] falls asleep\n[1518-06-18 00:57] wakes up\n[1518-06-19 00:04] Guard #653 begins shift\n[1518-06-19 00:43] falls asleep\n[1518-06-19 00:56] wakes up\n[1518-06-20 00:01] Guard #3467 begins shift\n[1518-06-20 00:40] falls asleep\n[1518-06-20 00:52] wakes up\n[1518-06-21 00:03] Guard #311 begins shift\n[1518-06-21 00:48] falls asleep\n[1518-06-21 00:51] wakes up\n[1518-06-21 00:56] falls asleep\n[1518-06-21 00:59] wakes up\n[1518-06-21 23:57] Guard #653 begins shift\n[1518-06-22 00:11] falls asleep\n[1518-06-22 00:18] wakes up\n[1518-06-22 00:45] falls asleep\n[1518-06-22 00:57] wakes up\n[1518-06-23 00:00] Guard #853 begins shift\n[1518-06-23 00:32] falls asleep\n[1518-06-23 00:48] wakes up\n[1518-06-24 00:04] Guard #727 begins shift\n[1518-06-24 00:27] falls asleep\n[1518-06-24 00:30] wakes up\n[1518-06-24 00:40] falls asleep\n[1518-06-24 00:59] wakes up\n[1518-06-25 00:03] Guard #1657 begins shift\n[1518-06-25 00:13] falls asleep\n[1518-06-25 00:33] wakes up\n[1518-06-26 00:00] Guard #653 begins shift\n[1518-06-26 00:10] falls asleep\n[1518-06-26 00:31] wakes up\n[1518-06-26 00:39] falls asleep\n[1518-06-26 00:53] wakes up\n[1518-06-26 23:56] Guard #1193 begins shift\n[1518-06-27 00:21] falls asleep\n[1518-06-27 00:52] wakes up\n[1518-06-28 00:04] Guard #853 begins shift\n[1518-06-28 00:43] falls asleep\n[1518-06-28 00:50] wakes up\n[1518-06-29 00:02] Guard #1949 begins shift\n[1518-06-29 00:08] falls asleep\n[1518-06-29 00:26] wakes up\n[1518-06-29 00:42] falls asleep\n[1518-06-29 00:46] wakes up\n[1518-06-30 00:04] Guard #2011 begins shift\n[1518-06-30 00:45] falls asleep\n[1518-06-30 00:55] wakes up\n[1518-06-30 23:53] Guard #853 begins shift\n[1518-07-01 00:03] falls asleep\n[1518-07-01 00:09] wakes up\n[1518-07-01 23:56] Guard #1433 begins shift\n[1518-07-02 00:47] falls asleep\n[1518-07-02 00:59] wakes up\n[1518-07-03 00:00] Guard #1433 begins shift\n[1518-07-03 00:08] falls asleep\n[1518-07-03 00:39] wakes up\n[1518-07-03 00:49] falls asleep\n[1518-07-03 00:52] wakes up\n[1518-07-04 00:01] Guard #1657 begins shift\n[1518-07-04 00:07] falls asleep\n[1518-07-04 00:17] wakes up\n[1518-07-04 00:27] falls asleep\n[1518-07-04 00:37] wakes up\n[1518-07-05 00:03] Guard #1129 begins shift\n[1518-07-05 00:13] falls asleep\n[1518-07-05 00:19] wakes up\n[1518-07-05 00:32] falls asleep\n[1518-07-05 00:48] wakes up\n[1518-07-05 23:57] Guard #1433 begins shift\n[1518-07-06 00:36] falls asleep\n[1518-07-06 00:55] wakes up\n[1518-07-06 23:46] Guard #1129 begins shift\n[1518-07-07 00:01] falls asleep\n[1518-07-07 00:23] wakes up\n[1518-07-07 00:39] falls asleep\n[1518-07-07 00:43] wakes up\n[1518-07-08 00:03] Guard #1193 begins shift\n[1518-07-08 00:43] falls asleep\n[1518-07-08 00:53] wakes up\n[1518-07-08 23:56] Guard #1193 begins shift\n[1518-07-09 00:12] falls asleep\n[1518-07-09 00:55] wakes up\n[1518-07-10 00:02] Guard #1193 begins shift\n[1518-07-10 00:31] falls asleep\n[1518-07-10 00:32] wakes up\n[1518-07-11 00:01] Guard #2011 begins shift\n[1518-07-11 00:17] falls asleep\n[1518-07-11 00:56] wakes up\n[1518-07-11 23:59] Guard #653 begins shift\n[1518-07-12 00:31] falls asleep\n[1518-07-12 00:34] wakes up\n[1518-07-12 00:49] falls asleep\n[1518-07-12 00:50] wakes up\n[1518-07-13 00:01] Guard #1657 begins shift\n[1518-07-13 00:22] falls asleep\n[1518-07-13 00:50] wakes up\n[1518-07-14 00:02] Guard #3499 begins shift\n[1518-07-14 00:13] falls asleep\n[1518-07-14 00:53] wakes up\n[1518-07-15 00:04] Guard #2011 begins shift\n[1518-07-15 00:35] falls asleep\n[1518-07-15 00:46] wakes up\n[1518-07-16 00:04] Guard #223 begins shift\n[1518-07-16 00:38] falls asleep\n[1518-07-16 00:47] wakes up\n[1518-07-16 23:47] Guard #2011 begins shift\n[1518-07-17 00:00] falls asleep\n[1518-07-17 00:53] wakes up\n[1518-07-17 00:56] falls asleep\n[1518-07-17 00:57] wakes up\n[1518-07-18 00:00] Guard #1657 begins shift\n[1518-07-18 00:29] falls asleep\n[1518-07-18 00:34] wakes up\n[1518-07-18 00:37] falls asleep\n[1518-07-18 00:45] wakes up\n[1518-07-19 00:00] Guard #1129 begins shift\n[1518-07-19 00:41] falls asleep\n[1518-07-19 00:53] wakes up\n[1518-07-19 23:52] Guard #647 begins shift\n[1518-07-20 00:03] falls asleep\n[1518-07-20 00:51] wakes up\n[1518-07-21 00:04] Guard #223 begins shift\n[1518-07-21 00:20] falls asleep\n[1518-07-21 00:33] wakes up\n[1518-07-21 00:37] falls asleep\n[1518-07-21 00:38] wakes up\n[1518-07-21 00:47] falls asleep\n[1518-07-21 00:51] wakes up\n[1518-07-22 00:02] Guard #1129 begins shift\n[1518-07-22 00:38] falls asleep\n[1518-07-22 00:46] wakes up\n[1518-07-22 23:53] Guard #1949 begins shift\n[1518-07-23 00:00] falls asleep\n[1518-07-23 00:53] wakes up\n[1518-07-23 23:57] Guard #1433 begins shift\n[1518-07-24 00:38] falls asleep\n[1518-07-24 00:48] wakes up\n[1518-07-24 00:51] falls asleep\n[1518-07-24 00:56] wakes up\n[1518-07-24 23:58] Guard #727 begins shift\n[1518-07-25 00:29] falls asleep\n[1518-07-25 00:41] wakes up\n[1518-07-26 00:04] Guard #727 begins shift\n[1518-07-26 00:22] falls asleep\n[1518-07-26 00:48] wakes up\n[1518-07-27 00:00] Guard #647 begins shift\n[1518-07-27 00:14] falls asleep\n[1518-07-27 00:36] wakes up\n[1518-07-27 00:55] falls asleep\n[1518-07-27 00:56] wakes up\n[1518-07-27 23:56] Guard #311 begins shift\n[1518-07-28 00:36] falls asleep\n[1518-07-28 00:43] wakes up\n[1518-07-28 00:46] falls asleep\n[1518-07-28 00:53] wakes up\n[1518-07-28 23:52] Guard #2719 begins shift\n[1518-07-29 00:00] falls asleep\n[1518-07-29 00:25] wakes up\n[1518-07-29 00:32] falls asleep\n[1518-07-29 00:39] wakes up\n[1518-07-30 00:00] Guard #3499 begins shift\n[1518-07-30 00:10] falls asleep\n[1518-07-30 00:14] wakes up\n[1518-07-30 00:18] falls asleep\n[1518-07-30 00:29] wakes up\n[1518-07-30 23:48] Guard #653 begins shift\n[1518-07-31 00:02] falls asleep\n[1518-07-31 00:20] wakes up\n[1518-07-31 00:33] falls asleep\n[1518-07-31 00:56] wakes up\n[1518-08-01 00:00] Guard #1657 begins shift\n[1518-08-01 00:24] falls asleep\n[1518-08-01 00:25] wakes up\n[1518-08-02 00:01] Guard #853 begins shift\n[1518-08-02 00:23] falls asleep\n[1518-08-02 00:49] wakes up\n[1518-08-03 00:03] Guard #2719 begins shift\n[1518-08-03 00:13] falls asleep\n[1518-08-03 00:51] wakes up\n[1518-08-04 00:00] Guard #311 begins shift\n[1518-08-04 00:42] falls asleep\n[1518-08-04 00:58] wakes up\n[1518-08-05 00:03] Guard #3467 begins shift\n[1518-08-05 00:24] falls asleep\n[1518-08-05 00:27] wakes up\n[1518-08-05 00:35] falls asleep\n[1518-08-05 00:45] wakes up\n[1518-08-05 23:57] Guard #1657 begins shift\n[1518-08-06 00:30] falls asleep\n[1518-08-06 00:37] wakes up\n[1518-08-07 00:01] Guard #761 begins shift\n[1518-08-07 00:24] falls asleep\n[1518-08-07 00:38] wakes up\n[1518-08-07 00:41] falls asleep\n[1518-08-07 00:48] wakes up\n[1518-08-08 00:02] Guard #3467 begins shift\n[1518-08-08 00:17] falls asleep\n[1518-08-08 00:59] wakes up\n[1518-08-08 23:57] Guard #1181 begins shift\n[1518-08-10 00:04] Guard #1877 begins shift\n[1518-08-10 00:11] falls asleep\n[1518-08-10 00:49] wakes up\n[1518-08-11 00:01] Guard #2503 begins shift\n[1518-08-11 00:30] falls asleep\n[1518-08-11 00:52] wakes up\n[1518-08-12 00:02] Guard #2503 begins shift\n[1518-08-12 00:30] falls asleep\n[1518-08-12 00:46] wakes up\n[1518-08-13 00:02] Guard #223 begins shift\n[1518-08-13 00:32] falls asleep\n[1518-08-13 00:59] wakes up\n[1518-08-13 23:48] Guard #1657 begins shift\n[1518-08-14 00:02] falls asleep\n[1518-08-14 00:52] wakes up\n[1518-08-15 00:00] Guard #1949 begins shift\n[1518-08-15 00:12] falls asleep\n[1518-08-15 00:35] wakes up\n[1518-08-15 00:40] falls asleep\n[1518-08-15 00:54] wakes up\n[1518-08-15 23:57] Guard #2011 begins shift\n[1518-08-16 00:44] falls asleep\n[1518-08-16 00:50] wakes up\n[1518-08-16 23:51] Guard #311 begins shift\n[1518-08-17 00:04] falls asleep\n[1518-08-17 00:13] wakes up\n[1518-08-17 00:30] falls asleep\n[1518-08-17 00:55] wakes up\n[1518-08-17 23:48] Guard #1877 begins shift\n[1518-08-18 00:02] falls asleep\n[1518-08-18 00:03] wakes up\n[1518-08-18 00:24] falls asleep\n[1518-08-18 00:32] wakes up\n[1518-08-18 00:47] falls asleep\n[1518-08-18 00:50] wakes up\n[1518-08-18 23:54] Guard #1949 begins shift\n[1518-08-19 00:05] falls asleep\n[1518-08-19 00:47] wakes up\n[1518-08-20 00:03] Guard #223 begins shift\n[1518-08-20 00:19] falls asleep\n[1518-08-20 00:39] wakes up\n[1518-08-20 23:52] Guard #727 begins shift\n[1518-08-21 00:05] falls asleep\n[1518-08-21 00:28] wakes up\n[1518-08-21 00:53] falls asleep\n[1518-08-21 00:56] wakes up\n[1518-08-22 00:02] Guard #653 begins shift\n[1518-08-22 00:26] falls asleep\n[1518-08-22 00:28] wakes up\n[1518-08-22 00:31] falls asleep\n[1518-08-22 00:58] wakes up\n[1518-08-23 00:02] Guard #2719 begins shift\n[1518-08-23 00:11] falls asleep\n[1518-08-23 00:40] wakes up\n[1518-08-23 23:56] Guard #2719 begins shift\n[1518-08-24 00:21] falls asleep\n[1518-08-24 00:24] wakes up\n[1518-08-24 00:54] falls asleep\n[1518-08-24 00:55] wakes up\n[1518-08-24 23:58] Guard #727 begins shift\n[1518-08-25 00:18] falls asleep\n[1518-08-25 00:31] wakes up\n[1518-08-25 00:40] falls asleep\n[1518-08-25 00:56] wakes up\n[1518-08-25 23:56] Guard #1193 begins shift\n[1518-08-26 00:06] falls asleep\n[1518-08-26 00:28] wakes up\n[1518-08-26 00:38] falls asleep\n[1518-08-26 00:55] wakes up\n[1518-08-27 00:00] Guard #1877 begins shift\n[1518-08-27 00:27] falls asleep\n[1518-08-27 00:42] wakes up\n[1518-08-28 00:00] Guard #727 begins shift\n[1518-08-28 00:29] falls asleep\n[1518-08-28 00:48] wakes up\n[1518-08-29 00:03] Guard #223 begins shift\n[1518-08-29 00:12] falls asleep\n[1518-08-29 00:33] wakes up\n[1518-08-29 00:47] falls asleep\n[1518-08-29 00:58] wakes up\n[1518-08-29 23:50] Guard #653 begins shift\n[1518-08-30 00:05] falls asleep\n[1518-08-30 00:43] wakes up\n[1518-08-30 00:52] falls asleep\n[1518-08-30 00:55] wakes up\n[1518-08-31 00:02] Guard #3137 begins shift\n[1518-08-31 00:37] falls asleep\n[1518-08-31 00:53] wakes up\n[1518-08-31 23:53] Guard #727 begins shift\n[1518-09-01 00:03] falls asleep\n[1518-09-01 00:38] wakes up\n[1518-09-01 23:59] Guard #2503 begins shift\n[1518-09-02 00:23] falls asleep\n[1518-09-02 00:26] wakes up\n[1518-09-02 00:39] falls asleep\n[1518-09-02 00:45] wakes up\n[1518-09-03 00:00] Guard #647 begins shift\n[1518-09-03 00:40] falls asleep\n[1518-09-03 00:52] wakes up\n[1518-09-03 00:56] falls asleep\n[1518-09-03 00:57] wakes up\n[1518-09-03 23:50] Guard #1129 begins shift\n[1518-09-04 00:03] falls asleep\n[1518-09-04 00:41] wakes up\n[1518-09-04 23:56] Guard #2011 begins shift\n[1518-09-05 00:43] falls asleep\n[1518-09-05 00:44] wakes up\n[1518-09-05 00:53] falls asleep\n[1518-09-05 00:58] wakes up\n[1518-09-05 23:58] Guard #1129 begins shift\n[1518-09-06 00:29] falls asleep\n[1518-09-06 00:47] wakes up\n[1518-09-07 00:04] Guard #3089 begins shift\n[1518-09-07 23:58] Guard #853 begins shift\n[1518-09-08 00:41] falls asleep\n[1518-09-08 00:52] wakes up\n[1518-09-08 23:54] Guard #2503 begins shift\n[1518-09-09 00:04] falls asleep\n[1518-09-09 00:50] wakes up\n[1518-09-09 23:56] Guard #1657 begins shift\n[1518-09-10 00:11] falls asleep\n[1518-09-10 00:46] wakes up\n[1518-09-10 23:50] Guard #853 begins shift\n[1518-09-11 00:01] falls asleep\n[1518-09-11 00:55] wakes up\n[1518-09-11 23:56] Guard #1193 begins shift\n[1518-09-12 00:15] falls asleep\n[1518-09-12 00:34] wakes up\n[1518-09-12 00:42] falls asleep\n[1518-09-12 00:48] wakes up\n[1518-09-13 00:00] Guard #853 begins shift\n[1518-09-13 00:25] falls asleep\n[1518-09-13 00:34] wakes up\n[1518-09-13 00:38] falls asleep\n[1518-09-13 00:49] wakes up\n[1518-09-14 00:01] Guard #3137 begins shift\n[1518-09-14 00:55] falls asleep\n[1518-09-14 00:56] wakes up\n[1518-09-14 23:49] Guard #761 begins shift\n[1518-09-15 00:01] falls asleep\n[1518-09-15 00:48] wakes up\n[1518-09-16 00:03] Guard #1877 begins shift\n[1518-09-16 00:39] falls asleep\n[1518-09-16 00:54] wakes up\n[1518-09-16 23:59] Guard #2719 begins shift\n[1518-09-17 00:48] falls asleep\n[1518-09-17 00:58] wakes up\n[1518-09-18 00:04] Guard #1657 begins shift\n[1518-09-18 00:25] falls asleep\n[1518-09-18 00:40] wakes up\n[1518-09-18 23:58] Guard #1193 begins shift\n[1518-09-19 00:10] falls asleep\n[1518-09-19 00:16] wakes up\n[1518-09-19 00:43] falls asleep\n[1518-09-19 00:52] wakes up\n[1518-09-20 00:03] Guard #3499 begins shift\n[1518-09-20 00:50] falls asleep\n[1518-09-20 00:51] wakes up\n[1518-09-20 00:56] falls asleep\n[1518-09-20 00:58] wakes up\n[1518-09-20 23:57] Guard #653 begins shift\n[1518-09-21 00:11] falls asleep\n[1518-09-21 00:31] wakes up\n[1518-09-22 00:01] Guard #727 begins shift\n[1518-09-22 00:18] falls asleep\n[1518-09-22 00:43] wakes up\n[1518-09-22 00:53] falls asleep\n[1518-09-22 00:54] wakes up\n[1518-09-22 00:57] falls asleep\n[1518-09-22 00:58] wakes up\n[1518-09-23 00:04] Guard #3499 begins shift\n[1518-09-23 00:08] falls asleep\n[1518-09-23 00:41] wakes up\n[1518-09-23 00:44] falls asleep\n[1518-09-23 00:45] wakes up\n[1518-09-24 00:02] Guard #3499 begins shift\n[1518-09-24 00:15] falls asleep\n[1518-09-24 00:39] wakes up\n[1518-09-25 00:04] Guard #2011 begins shift\n[1518-09-25 00:42] falls asleep\n[1518-09-25 00:47] wakes up\n[1518-09-26 00:04] Guard #727 begins shift\n[1518-09-26 00:17] falls asleep\n[1518-09-26 00:39] wakes up\n[1518-09-27 00:00] Guard #853 begins shift\n[1518-09-27 00:32] falls asleep\n[1518-09-27 00:53] wakes up\n[1518-09-28 00:00] Guard #727 begins shift\n[1518-09-28 00:19] falls asleep\n[1518-09-28 00:51] wakes up\n[1518-09-29 00:02] Guard #311 begins shift\n[1518-09-29 00:10] falls asleep\n[1518-09-29 00:54] wakes up\n[1518-09-30 00:00] Guard #653 begins shift\n[1518-09-30 00:07] falls asleep\n[1518-09-30 00:16] wakes up\n[1518-09-30 00:47] falls asleep\n[1518-09-30 00:51] wakes up\n[1518-10-01 00:04] Guard #2897 begins shift\n[1518-10-01 23:56] Guard #853 begins shift\n[1518-10-02 00:19] falls asleep\n[1518-10-02 00:40] wakes up\n[1518-10-02 23:52] Guard #2503 begins shift\n[1518-10-03 00:00] falls asleep\n[1518-10-03 00:03] wakes up\n[1518-10-03 00:33] falls asleep\n[1518-10-03 00:43] wakes up\n[1518-10-03 23:56] Guard #653 begins shift\n[1518-10-04 00:07] falls asleep\n[1518-10-04 00:50] wakes up\n[1518-10-04 00:53] falls asleep\n[1518-10-04 00:57] wakes up\n[1518-10-04 23:57] Guard #727 begins shift\n[1518-10-05 00:10] falls asleep\n[1518-10-05 00:44] wakes up\n[1518-10-06 00:03] Guard #761 begins shift\n[1518-10-06 00:44] falls asleep\n[1518-10-06 00:57] wakes up\n[1518-10-06 23:54] Guard #2011 begins shift\n[1518-10-07 00:01] falls asleep\n[1518-10-07 00:10] wakes up\n[1518-10-07 00:51] falls asleep\n[1518-10-07 00:59] wakes up\n[1518-10-08 00:02] Guard #653 begins shift\n[1518-10-08 00:41] falls asleep\n[1518-10-08 00:47] wakes up\n[1518-10-08 00:55] falls asleep\n[1518-10-08 00:59] wakes up\n[1518-10-09 00:00] Guard #223 begins shift\n[1518-10-09 00:21] falls asleep\n[1518-10-09 00:45] wakes up\n[1518-10-10 00:03] Guard #311 begins shift\n[1518-10-10 00:44] falls asleep\n[1518-10-10 00:54] wakes up\n[1518-10-11 00:04] Guard #3137 begins shift\n[1518-10-11 00:47] falls asleep\n[1518-10-11 00:59] wakes up\n[1518-10-12 00:02] Guard #2719 begins shift\n[1518-10-12 00:25] falls asleep\n[1518-10-12 00:32] wakes up\n[1518-10-12 00:39] falls asleep\n[1518-10-12 00:46] wakes up\n[1518-10-13 00:01] Guard #761 begins shift\n[1518-10-13 00:37] falls asleep\n[1518-10-13 00:40] wakes up\n[1518-10-13 00:57] falls asleep\n[1518-10-13 00:59] wakes up\n[1518-10-14 00:00] Guard #853 begins shift\n[1518-10-14 00:48] falls asleep\n[1518-10-14 00:53] wakes up\n[1518-10-15 00:01] Guard #1433 begins shift\n[1518-10-15 00:09] falls asleep\n[1518-10-15 00:43] wakes up\n[1518-10-15 00:48] falls asleep\n[1518-10-15 00:53] wakes up\n[1518-10-16 00:00] Guard #3467 begins shift\n[1518-10-16 00:23] falls asleep\n[1518-10-16 00:27] wakes up\n[1518-10-16 23:57] Guard #2719 begins shift\n[1518-10-17 00:06] falls asleep\n[1518-10-17 00:51] wakes up\n[1518-10-17 23:59] Guard #2579 begins shift\n[1518-10-18 00:06] falls asleep\n[1518-10-18 00:21] wakes up\n[1518-10-18 00:26] falls asleep\n[1518-10-18 00:58] wakes up\n[1518-10-18 23:48] Guard #2011 begins shift\n[1518-10-19 00:03] falls asleep\n[1518-10-19 00:26] wakes up\n[1518-10-19 00:30] falls asleep\n[1518-10-19 00:56] wakes up\n[1518-10-20 00:01] Guard #2011 begins shift\n[1518-10-20 00:46] falls asleep\n[1518-10-20 00:58] wakes up\n[1518-10-21 00:00] Guard #1949 begins shift\n[1518-10-21 00:20] falls asleep\n[1518-10-21 00:24] wakes up\n[1518-10-21 00:29] falls asleep\n[1518-10-21 00:34] wakes up\n[1518-10-21 23:58] Guard #1129 begins shift\n[1518-10-22 00:17] falls asleep\n[1518-10-22 00:22] wakes up\n[1518-10-23 00:03] Guard #311 begins shift\n[1518-10-23 00:32] falls asleep\n[1518-10-23 00:36] wakes up\n[1518-10-23 00:51] falls asleep\n[1518-10-23 00:59] wakes up\n[1518-10-23 23:58] Guard #1877 begins shift\n[1518-10-24 00:40] falls asleep\n[1518-10-24 00:55] wakes up\n[1518-10-25 00:00] Guard #647 begins shift\n[1518-10-25 00:24] falls asleep\n[1518-10-25 00:50] wakes up\n[1518-10-26 00:00] Guard #1433 begins shift\n[1518-10-26 00:25] falls asleep\n[1518-10-26 00:50] wakes up\n[1518-10-26 23:46] Guard #2503 begins shift\n[1518-10-27 00:04] falls asleep\n[1518-10-27 00:30] wakes up\n[1518-10-27 23:56] Guard #647 begins shift\n[1518-10-28 00:34] falls asleep\n[1518-10-28 00:36] wakes up\n[1518-10-28 00:48] falls asleep\n[1518-10-28 00:56] wakes up\n[1518-10-29 00:00] Guard #223 begins shift\n[1518-10-29 00:07] falls asleep\n[1518-10-29 00:40] wakes up\n[1518-10-30 00:01] Guard #3467 begins shift\n[1518-10-30 00:12] falls asleep\n[1518-10-30 00:58] wakes up\n[1518-10-31 00:01] Guard #1193 begins shift\n[1518-10-31 00:28] falls asleep\n[1518-10-31 00:44] wakes up\n[1518-11-01 00:04] Guard #647 begins shift\n[1518-11-01 00:26] falls asleep\n[1518-11-01 00:37] wakes up\n[1518-11-01 00:50] falls asleep\n[1518-11-01 00:52] wakes up\n[1518-11-02 00:01] Guard #1129 begins shift\n[1518-11-02 00:46] falls asleep\n[1518-11-02 00:56] wakes up\n[1518-11-03 00:00] Guard #223 begins shift\n[1518-11-03 00:23] falls asleep\n[1518-11-03 00:26] wakes up\n[1518-11-03 00:32] falls asleep\n[1518-11-03 00:47] wakes up\n[1518-11-03 00:54] falls asleep\n[1518-11-03 00:59] wakes up\n[1518-11-03 23:59] Guard #647 begins shift\n[1518-11-04 00:11] falls asleep\n[1518-11-04 00:59] wakes up\n[1518-11-04 23:50] Guard #3137 begins shift\n[1518-11-05 00:00] falls asleep\n[1518-11-05 00:40] wakes up\n[1518-11-05 00:51] falls asleep\n[1518-11-05 00:58] wakes up\n[1518-11-06 00:02] Guard #3467 begins shift\n[1518-11-06 00:48] falls asleep\n[1518-11-06 00:50] wakes up\n[1518-11-06 00:53] falls asleep\n[1518-11-06 00:57] wakes up\n[1518-11-07 00:00] Guard #2011 begins shift\n[1518-11-07 00:25] falls asleep\n[1518-11-07 00:52] wakes up\n[1518-11-07 23:58] Guard #2719 begins shift\n[1518-11-08 00:25] falls asleep\n[1518-11-08 00:42] wakes up\n[1518-11-09 00:03] Guard #653 begins shift\n[1518-11-09 00:36] falls asleep\n[1518-11-09 00:45] wakes up\n[1518-11-10 00:03] Guard #1877 begins shift\n[1518-11-10 00:35] falls asleep\n[1518-11-10 00:40] wakes up\n[1518-11-10 23:51] Guard #1949 begins shift\n[1518-11-11 00:04] falls asleep\n[1518-11-11 00:19] wakes up\n[1518-11-11 00:30] falls asleep\n[1518-11-11 00:50] wakes up\n[1518-11-11 23:59] Guard #3137 begins shift\n[1518-11-12 00:42] falls asleep\n[1518-11-12 00:52] wakes up\n[1518-11-12 23:50] Guard #1657 begins shift\n[1518-11-13 00:05] falls asleep\n[1518-11-13 00:45] wakes up\n[1518-11-14 00:00] Guard #2719 begins shift\n[1518-11-14 00:28] falls asleep\n[1518-11-14 00:43] wakes up\n[1518-11-15 00:02] Guard #3499 begins shift\n[1518-11-15 00:17] falls asleep\n[1518-11-15 00:59] wakes up\n[1518-11-16 00:02] Guard #1433 begins shift\n[1518-11-16 00:50] falls asleep\n[1518-11-16 00:59] wakes up\n[1518-11-16 23:56] Guard #1657 begins shift\n[1518-11-17 00:32] falls asleep\n[1518-11-17 00:58] wakes up\n[1518-11-17 23:56] Guard #2011 begins shift\n[1518-11-18 00:11] falls asleep\n[1518-11-18 00:41] wakes up\n[1518-11-18 00:45] falls asleep\n[1518-11-18 00:51] wakes up\n[1518-11-18 23:57] Guard #3089 begins shift\n[1518-11-19 23:52] Guard #2719 begins shift\n[1518-11-20 00:00] falls asleep\n[1518-11-20 00:12] wakes up\n[1518-11-20 23:53] Guard #727 begins shift\n[1518-11-21 00:00] falls asleep\n[1518-11-21 00:31] wakes up\n[1518-11-21 00:38] falls asleep\n[1518-11-21 00:52] wakes up\n[1518-11-22 00:01] Guard #3467 begins shift\n[1518-11-22 00:20] falls asleep\n[1518-11-22 00:45] wakes up\n[1518-11-23 00:02] Guard #1193 begins shift\n[1518-11-23 00:30] falls asleep\n[1518-11-23 00:48] wakes up';
+var author$project$Main$FallsAsleep = function (a) {
+	return {$: 'FallsAsleep', a: a};
 };
-var author$project$Main$reduceCode = F2(
-	function (q, currQ) {
-		reduceCode:
+var author$project$Main$NotFoud = {$: 'NotFoud'};
+var author$project$Main$Start = F2(
+	function (a, b) {
+		return {$: 'Start', a: a, b: b};
+	});
+var author$project$Main$WakesUp = function (a) {
+	return {$: 'WakesUp', a: a};
+};
+var elm$core$Basics$negate = function (n) {
+	return -n;
+};
+var elm$core$String$slice = _String_slice;
+var elm$core$String$toInt = _String_toInt;
+var elm$core$String$trim = _String_trim;
+var author$project$Main$parseLogHelper = function (s) {
+	var strYear = A3(elm$core$String$slice, 1, 5, s);
+	var strMon = A3(elm$core$String$slice, 6, 8, s);
+	var strMin = A3(elm$core$String$slice, 15, 17, s);
+	var strKey = A3(elm$core$String$slice, 19, 24, s);
+	var strHr = A3(elm$core$String$slice, 12, 14, s);
+	var strDay = A3(elm$core$String$slice, 9, 11, s);
+	var min = A2(
+		elm$core$Maybe$withDefault,
+		-1,
+		elm$core$String$toInt(strMin));
+	var log = {day: strDay, hour: strHr, minute: min, month: strMon, year: strYear};
+	var guard = elm$core$String$trim(
+		A3(elm$core$String$slice, 26, 30, s));
+	switch (strKey) {
+		case 'Guard':
+			return A2(author$project$Main$Start, guard, log);
+		case 'falls':
+			return author$project$Main$FallsAsleep(log);
+		case 'wakes':
+			return author$project$Main$WakesUp(log);
+		default:
+			return author$project$Main$NotFoud;
+	}
+};
+var elm$core$List$map = F2(
+	function (f, xs) {
+		return A3(
+			elm$core$List$foldr,
+			F2(
+				function (x, acc) {
+					return A2(
+						elm$core$List$cons,
+						f(x),
+						acc);
+				}),
+			_List_Nil,
+			xs);
+	});
+var author$project$Main$parseLog = function (list) {
+	return A2(elm$core$List$map, author$project$Main$parseLogHelper, list);
+};
+var elm$core$Basics$apR = F2(
+	function (x, f) {
+		return f(x);
+	});
+var elm$core$Dict$foldl = F3(
+	function (func, acc, dict) {
+		foldl:
 		while (true) {
-			if (turboMaCk$queue$Queue$size(q) < 2) {
-				return turboMaCk$queue$Queue$toList(q);
+			if (dict.$ === 'RBEmpty_elm_builtin') {
+				return acc;
 			} else {
-				var item1 = turboMaCk$queue$Queue$dequeue(q);
-				var item2 = turboMaCk$queue$Queue$dequeue(item1.b);
-				var newQ = item2.b;
-				var b = function () {
-					var _n1 = item2.a;
-					if (_n1.$ === 'Just') {
-						var bChar = _n1.a;
-						return bChar;
-					} else {
-						return _Utils_chr('$');
-					}
-				}();
-				var a = function () {
-					var _n0 = item1.a;
-					if (_n0.$ === 'Just') {
-						var aChar = _n0.a;
-						return aChar;
-					} else {
-						return _Utils_chr('$');
-					}
-				}();
-				var newCurrQ = A4(author$project$Main$reduceCodeHelper, a, b, newQ, currQ);
-				if (_Utils_eq(
-					turboMaCk$queue$Queue$size(newQ),
-					turboMaCk$queue$Queue$size(newCurrQ))) {
-					return turboMaCk$queue$Queue$toList(newCurrQ);
-				} else {
-					var $temp$q = newCurrQ,
-						$temp$currQ = newCurrQ;
-					q = $temp$q;
-					currQ = $temp$currQ;
-					continue reduceCode;
-				}
+				var key = dict.b;
+				var value = dict.c;
+				var left = dict.d;
+				var right = dict.e;
+				var $temp$func = func,
+					$temp$acc = A3(
+					func,
+					key,
+					value,
+					A3(elm$core$Dict$foldl, func, acc, left)),
+					$temp$dict = right;
+				func = $temp$func;
+				acc = $temp$acc;
+				dict = $temp$dict;
+				continue foldl;
 			}
 		}
 	});
-var elm$core$Basics$False = {$: 'False'};
-var elm$core$Basics$True = {$: 'True'};
 var elm$core$Result$isOk = function (result) {
 	if (result.$ === 'Ok') {
 		return true;
@@ -4669,6 +4925,7 @@ var elm$core$Array$compressNodes = F2(
 			}
 		}
 	});
+var elm$core$Basics$eq = _Utils_equal;
 var elm$core$Array$treeFromBuilder = F2(
 	function (nodeList, nodeListSize) {
 		treeFromBuilder:
@@ -4685,8 +4942,11 @@ var elm$core$Array$treeFromBuilder = F2(
 			}
 		}
 	});
+var elm$core$Basics$apL = F2(
+	function (f, x) {
+		return f(x);
+	});
 var elm$core$Basics$floor = _Basics_floor;
-var elm$core$Basics$gt = _Utils_gt;
 var elm$core$Basics$max = F2(
 	function (x, y) {
 		return (_Utils_cmp(x, y) > 0) ? x : y;
@@ -4717,6 +4977,7 @@ var elm$core$Array$builderToArray = F2(
 		}
 	});
 var elm$core$Basics$idiv = _Basics_idiv;
+var elm$core$Basics$lt = _Utils_lt;
 var elm$core$Elm$JsArray$initialize = _JsArray_initialize;
 var elm$core$Array$initializeHelp = F5(
 	function (fn, fromIndex, len, nodeList, tail) {
@@ -4744,7 +5005,6 @@ var elm$core$Array$initializeHelp = F5(
 			}
 		}
 	});
-var elm$core$Basics$le = _Utils_le;
 var elm$core$Basics$remainderBy = _Basics_remainderBy;
 var elm$core$Array$initialize = F2(
 	function (len, fn) {
@@ -4779,7 +5039,9 @@ var elm$json$Json$Decode$OneOf = function (a) {
 	return {$: 'OneOf', a: a};
 };
 var elm$core$Basics$and = _Basics_and;
+var elm$core$Basics$append = _Utils_append;
 var elm$core$Basics$or = _Basics_or;
+var elm$core$Char$toCode = _Char_toCode;
 var elm$core$Char$isLower = function (_char) {
 	var code = elm$core$Char$toCode(_char);
 	return (97 <= code) && (code <= 122);
@@ -4799,27 +5061,6 @@ var elm$core$Char$isAlphaNum = function (_char) {
 	return elm$core$Char$isLower(_char) || (elm$core$Char$isUpper(_char) || elm$core$Char$isDigit(_char));
 };
 var elm$core$List$map2 = _List_map2;
-var elm$core$List$rangeHelp = F3(
-	function (lo, hi, list) {
-		rangeHelp:
-		while (true) {
-			if (_Utils_cmp(lo, hi) < 1) {
-				var $temp$lo = lo,
-					$temp$hi = hi - 1,
-					$temp$list = A2(elm$core$List$cons, hi, list);
-				lo = $temp$lo;
-				hi = $temp$hi;
-				list = $temp$list;
-				continue rangeHelp;
-			} else {
-				return list;
-			}
-		}
-	});
-var elm$core$List$range = F2(
-	function (lo, hi) {
-		return A3(elm$core$List$rangeHelp, lo, hi, _List_Nil);
-	});
 var elm$core$List$indexedMap = F2(
 	function (f, xs) {
 		return A3(
@@ -4958,30 +5199,81 @@ var elm$json$Json$Decode$errorToStringHelp = F2(
 	});
 var elm$core$Platform$Cmd$batch = _Platform_batch;
 var elm$core$Platform$Cmd$none = elm$core$Platform$Cmd$batch(_List_Nil);
-var elm$core$String$fromList = _String_fromList;
-var elm$core$String$foldr = _String_foldr;
-var elm$core$String$toList = function (string) {
-	return A3(elm$core$String$foldr, elm$core$List$cons, _List_Nil, string);
-};
-var turboMaCk$queue$Queue$empty = A2(turboMaCk$queue$Queue$Queue, _List_Nil, _List_Nil);
-var turboMaCk$queue$Queue$fromList = function (list) {
-	return A2(turboMaCk$queue$Queue$Queue, list, _List_Nil);
+var elm$core$String$lines = _String_lines;
+var elm$core$List$partition = F2(
+	function (pred, list) {
+		var step = F2(
+			function (x, _n0) {
+				var trues = _n0.a;
+				var falses = _n0.b;
+				return pred(x) ? _Utils_Tuple2(
+					A2(elm$core$List$cons, x, trues),
+					falses) : _Utils_Tuple2(
+					trues,
+					A2(elm$core$List$cons, x, falses));
+			});
+		return A3(
+			elm$core$List$foldr,
+			step,
+			_Utils_Tuple2(_List_Nil, _List_Nil),
+			list);
+	});
+var elm_community$list_extra$List$Extra$gatherWith = F2(
+	function (testFn, list) {
+		var helper = F2(
+			function (scattered, gathered) {
+				if (!scattered.b) {
+					return elm$core$List$reverse(gathered);
+				} else {
+					var toGather = scattered.a;
+					var population = scattered.b;
+					var _n1 = A2(
+						elm$core$List$partition,
+						testFn(toGather),
+						population);
+					var gathering = _n1.a;
+					var remaining = _n1.b;
+					return A2(
+						helper,
+						remaining,
+						A2(
+							elm$core$List$cons,
+							_Utils_Tuple2(toGather, gathering),
+							gathered));
+				}
+			});
+		return A2(helper, list, _List_Nil);
+	});
+var elm_community$list_extra$List$Extra$gatherEquals = function (list) {
+	return A2(elm_community$list_extra$List$Extra$gatherWith, elm$core$Basics$eq, list);
 };
 var author$project$Main$init = function () {
-	var inputQ = turboMaCk$queue$Queue$fromList(
-		elm$core$String$toList(author$project$Main$input));
-	var resultList = A2(author$project$Main$reduceCode, inputQ, turboMaCk$queue$Queue$empty);
-	var result = elm$core$String$fromList(resultList);
-	return _Utils_Tuple2(result, elm$core$Platform$Cmd$none);
+	var logs = author$project$Main$buildGuardLog(
+		author$project$Main$parseLog(
+			elm$core$String$lines(author$project$Main$input)));
+	var guard = A3(
+		elm$core$Dict$foldl,
+		author$project$Main$findMax,
+		_Utils_Tuple2('0', -1),
+		logs.a);
+	var guardMinutes = A2(
+		elm$core$Maybe$withDefault,
+		_List_Nil,
+		A2(elm$core$Dict$get, guard.a, logs.b));
+	var minuteGroups = elm_community$list_extra$List$Extra$gatherEquals(guardMinutes);
+	var sleepiestMinute = A3(
+		elm$core$List$foldl,
+		author$project$Main$findSleepiestMinute,
+		_Utils_Tuple2(0, 0),
+		minuteGroups);
+	return _Utils_Tuple2(
+		_Utils_Tuple2(guard.a, sleepiestMinute.a),
+		elm$core$Platform$Cmd$none);
 }();
 var author$project$Main$update = F2(
 	function (msg, model) {
 		return _Utils_Tuple2(model, elm$core$Platform$Cmd$none);
 	});
-var elm$core$String$length = _String_length;
-var elm$core$Basics$identity = function (x) {
-	return x;
-};
 var elm$json$Json$Decode$map = _Json_map1;
 var elm$json$Json$Decode$map2 = _Json_map2;
 var elm$json$Json$Decode$succeed = _Json_succeed;
@@ -5000,7 +5292,6 @@ var elm$virtual_dom$VirtualDom$toHandlerInt = function (handler) {
 var elm$html$Html$div = _VirtualDom_node('div');
 var elm$html$Html$h1 = _VirtualDom_node('h1');
 var elm$html$Html$img = _VirtualDom_node('img');
-var elm$html$Html$p = _VirtualDom_node('p');
 var elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
 var elm$html$Html$text = elm$virtual_dom$VirtualDom$text;
 var elm$json$Json$Encode$string = _Json_wrap;
@@ -5038,13 +5329,12 @@ var author$project$Main$view = function (model) {
 						elm$html$Html$text('Your Elm App is working!')
 					])),
 				A2(
-				elm$html$Html$p,
+				elm$html$Html$h1,
 				_List_Nil,
 				_List_fromArray(
 					[
 						elm$html$Html$text(
-						'Final string length is :: ' + elm$core$String$fromInt(
-							elm$core$String$length(model)))
+						'Answer is guard ' + (model.a + (' ' + elm$core$String$fromInt(model.b))))
 					]))
 			]));
 };
@@ -5071,75 +5361,6 @@ var elm$core$Task$Perform = function (a) {
 };
 var elm$core$Task$succeed = _Scheduler_succeed;
 var elm$core$Task$init = elm$core$Task$succeed(_Utils_Tuple0);
-var elm$core$List$foldrHelper = F4(
-	function (fn, acc, ctr, ls) {
-		if (!ls.b) {
-			return acc;
-		} else {
-			var a = ls.a;
-			var r1 = ls.b;
-			if (!r1.b) {
-				return A2(fn, a, acc);
-			} else {
-				var b = r1.a;
-				var r2 = r1.b;
-				if (!r2.b) {
-					return A2(
-						fn,
-						a,
-						A2(fn, b, acc));
-				} else {
-					var c = r2.a;
-					var r3 = r2.b;
-					if (!r3.b) {
-						return A2(
-							fn,
-							a,
-							A2(
-								fn,
-								b,
-								A2(fn, c, acc)));
-					} else {
-						var d = r3.a;
-						var r4 = r3.b;
-						var res = (ctr > 500) ? A3(
-							elm$core$List$foldl,
-							fn,
-							acc,
-							elm$core$List$reverse(r4)) : A4(elm$core$List$foldrHelper, fn, acc, ctr + 1, r4);
-						return A2(
-							fn,
-							a,
-							A2(
-								fn,
-								b,
-								A2(
-									fn,
-									c,
-									A2(fn, d, res))));
-					}
-				}
-			}
-		}
-	});
-var elm$core$List$foldr = F3(
-	function (fn, acc, ls) {
-		return A4(elm$core$List$foldrHelper, fn, acc, 0, ls);
-	});
-var elm$core$List$map = F2(
-	function (f, xs) {
-		return A3(
-			elm$core$List$foldr,
-			F2(
-				function (x, acc) {
-					return A2(
-						elm$core$List$cons,
-						f(x),
-						acc);
-				}),
-			_List_Nil,
-			xs);
-	});
 var elm$core$Task$andThen = _Scheduler_andThen;
 var elm$core$Task$map = F2(
 	function (func, taskA) {
@@ -5214,7 +5435,7 @@ var elm$core$Task$perform = F2(
 			elm$core$Task$Perform(
 				A2(elm$core$Task$map, toMessage, task)));
 	});
-var elm$core$String$slice = _String_slice;
+var elm$core$String$length = _String_length;
 var elm$core$String$dropLeft = F2(
 	function (n, string) {
 		return (n < 1) ? string : A3(
@@ -5235,7 +5456,6 @@ var elm$core$String$left = F2(
 		return (n < 1) ? '' : A3(elm$core$String$slice, 0, n, string);
 	});
 var elm$core$String$contains = _String_contains;
-var elm$core$String$toInt = _String_toInt;
 var elm$url$Url$Url = F6(
 	function (protocol, host, port_, path, query, fragment) {
 		return {fragment: fragment, host: host, path: path, port_: port_, protocol: protocol, query: query};
