@@ -1,11 +1,9 @@
 module Main exposing (Model, Msg(..), StringStatus, init, input, main, update, view)
 
+import Array exposing (..)
 import Browser
 import Html exposing (Html, div, h1, img, p, text)
 import Html.Attributes exposing (src)
-import List.Extra exposing (..)
-import Queue exposing (..)
-
 
 
 ---- MODEL ----
@@ -24,193 +22,88 @@ type alias StringStatus =
 init : ( Model, Cmd Msg )
 init =
     let
-        inputQ =
+        inputArr =
             input
                 |> String.toList
-                |> Queue.fromList
-
-        resultList =
-            reduceCode inputQ Queue.empty
-
-        result =
-            String.fromList resultList
+                |> Array.fromList
+                |> processCompound
     in
-    ( result, Cmd.none )
+    ( String.fromList (Array.toList inputArr), Cmd.none )
 
 
-reduceCode : Queue Char -> Queue Char -> List Char
-reduceCode q currQ =
-    if Queue.size q < 2 then
-        Queue.toList q
+processCompound : Array Char -> Array Char
+processCompound arr =
+    case Array.length arr of
+        0 ->
+            Array.empty
+
+        1 ->
+            arr
+
+        _ ->
+            --two or more items
+            let
+                a =
+                    Maybe.withDefault '$' (Array.get 0 arr)
+
+                b =
+                    Maybe.withDefault '$' (Array.get 1 arr)
+
+                maxIdx =
+                    Array.length arr - 1
+
+                currIdx =
+                    2
+
+                newArr =
+                    processCompoundHelper a b currIdx maxIdx arr Array.empty
+            in
+            if Array.length newArr /= Array.length arr then
+                processCompound newArr
+
+            else
+                newArr
+
+
+processCompoundHelper : Char -> Char -> Int -> Int -> Array Char -> Array Char -> Array Char
+processCompoundHelper a b currIdx maxIdx currArr resultArr =
+    if currIdx > maxIdx then
+        if doCharsReact a b then
+            resultArr
+        else 
+            let
+                tempResultArr = Array.push a resultArr
+            in
+            Array.push b tempResultArr
+
+    else if doCharsReact a b then
+        let
+            --do something
+            newA =
+                Maybe.withDefault '$' (Array.get currIdx currArr)
+
+            maybeNewB =
+                Array.get (currIdx + 1) currArr
+        in
+        case maybeNewB of
+            Just newB ->
+                processCompoundHelper newA newB (currIdx + 2) maxIdx currArr resultArr
+
+            Nothing ->
+                Array.push newA resultArr
 
     else
         let
-            item1 =
-                Queue.dequeue q
-
-            a =
-                case Tuple.first item1 of
-                    Just aChar ->
-                        aChar
-
-                    Nothing ->
-                        '$'
-
-            item2 =
-                item1
-                    |> Tuple.second
-                    |> Queue.dequeue
-
-            b =
-                case Tuple.first item2 of
-                    Just bChar ->
-                        bChar
-
-                    Nothing ->
-                        '$'
-
-            newQ =
-                Tuple.second item2
-
-            newCurrQ =
-                reduceCodeHelper a b newQ currQ
+            --push a onto resultArr
+            newResultArr =
+                Array.push a resultArr
         in
-        if Queue.size currQ == Queue.size newCurrQ then
-            Queue.toList newCurrQ
+        case Array.get currIdx currArr of
+            Just c ->
+                processCompoundHelper b c (currIdx + 1) maxIdx currArr newResultArr
 
-        else
-            reduceCode newCurrQ newCurrQ
-
-
-reduceCodeHelper : Char -> Char -> Queue Char -> Queue Char -> Queue Char
-reduceCodeHelper a b q currQ =
-    case Queue.size q of
-        0 ->
-            currQ
-
-        1 ->
-            let
-                qItem =
-                    q
-                        |> Queue.dequeue
-                        |> Tuple.first
-            in
-            case qItem of
-                Just aQItem ->
-                    Queue.enqueue aQItem currQ
-
-                option2 ->
-                    currQ
-
-        _ ->
-            let
-                mayB =
-                    charToAdd a b
-
-                newQ =
-                    case mayB of
-                        Just aChar ->
-                            Queue.enqueue aChar currQ
-
-                        Nothing ->
-                            currQ
-
-                item1 =
-                    Queue.dequeue q
-
-                item2 =
-                    Queue.dequeue (Tuple.second item1)
-            in
-            case mayB of
-                Just aB ->
-                    -- pull one item off queue and make B the new A
-                    let
-                        newA =
-                            b
-
-                        newB =
-                            case Tuple.first item1 of
-                                Just aA ->
-                                    aA
-
-                                Nothing ->
-                                    '$'
-                    in
-                    reduceCodeHelper newA newB (Tuple.second item1) newQ
-
-                Nothing ->
-                    -- pull two items off queue
-                    let
-                        newA1 =
-                            case Tuple.first item1 of
-                                Just aA1 ->
-                                    aA1
-
-                                Nothing ->
-                                    '$'
-
-                        newB1 =
-                            case Tuple.first item2 of
-                                Just aB1 ->
-                                    aB1
-
-                                Nothing ->
-                                    '$'
-                    in
-                    reduceCodeHelper newA1 newB1 (Tuple.second item2) newQ
-
-
-
--- reduceCode : List Char -> List Char
--- reduceCode code =
---     let
---         reducedList =
---             reduceCodeHelper 0 code []
---     in
---     if List.length reducedList < List.length code then
---         reduceCode reducedList
---     else
---         reducedList
--- reduceCodeHelper : Int -> List Char -> List Char -> List Char
--- reduceCodeHelper idx code currlist =
---     if idx >= (List.length code) then
---         currlist
---     else
---         let
---             a =
---                 case List.Extra.getAt idx code of
---                     Just aA ->
---                         aA
---                     Nothing ->
---                         '$'
---             b =
---                 case List.Extra.getAt (idx + 1) code of
---                     Just aB ->
---                         aB
---                     Nothing ->
---                         '$'
---             newCurrlist =
---                 case charToAdd a b of
---                     Just aChar ->
---                         currlist ++ [ aChar ]
---                     Nothing ->
---                         currlist
---             newidx =
---                 if doCharsReact a b then
---                     idx + 2
---                 else
---                     idx + 1
---         in
---         reduceCodeHelper newidx code newCurrlist
-
-
-charToAdd : Char -> Char -> Maybe Char
-charToAdd a b =
-    if doCharsReact a b then
-        Nothing
-
-    else
-        Just a
+            Nothing ->
+                Array.push b newResultArr
 
 
 doCharsReact : Char -> Char -> Bool
@@ -240,7 +133,7 @@ view model =
     div []
         [ img [ src "/logo.svg" ] []
         , h1 [] [ text "Your Elm App is working!" ]
-        , p [] [ text ("Final string length is :: " ++ String.fromInt (String.length model)) ]
+        , p [] [ text ("Length is :: " ++ String.fromInt (String.length model))]
         ]
 
 
@@ -260,4 +153,4 @@ main =
 
 input : String
 input =
-    "dabAcCaCBAcCcaDA"
+    "vVuyYJjUzzZPxXqQpZmgGMvNmMyYTtnVkWwKVvOosmTtMSkDdKFsSpEePhXEexzZtnNTHEeGoOmMRrGggfnSsNwWVvJGgFEefpPMmeUuEoOBbjJuUwWjhHUMmjYyJsGgiISEepjJGgPZQqoOzyKkvVWXxhpPFcCfreESsjJRHUCcXGyYgQXxCcqXfFvVcCLlxxuwMmzZkEeoOKHhHLzZFflhiIOoHhjJaAJjYyHJjhmMYUwSsWUNxXUuFfuKkbBUtTnJjuNeEYyTxXtYyeIixXsvVQqSbBrRIifIpwIFfiWPiFEnaPFAafkKaKkAFfptTTtACHhWwcKkBbwgLlfFGWPUuJiIZFfznNjvVpSAaQqsnRrOojJsdmMDSVvRfFWvVwhaAHrwWUyYugAqQqQaGEexIiXVWwvbcCcCOaAoqQBLlNtEsSyYntTNeTHhZnNzJjSsCcWgGjJwzeEZaqQHtThALlBbnNJHhjbGgRrBPrReUcmPpMqQCuWwNnELlfzHhrRZKkhHFqQXxmjJMIiUuGgfRrNtTWzZwnlGgSssSsSrROoGguUdDkKwWyYghHGLDdxXoxXOFftdOoRSsrfFArRaSsELleDdDtRqQTJjtCSscjJbBrTevVrRQqDZzdYyYYyrkKRywWHRrhgUuGdDspPSrbBRZzYmMoOjJTtySszZiIzZdXxEeDJjUIizZuUuUVvucdiCcILHhHGgoOcCZnNzRVvWqwWfFexXEEeQwGgrBbhaZzAfFnDBBzZbIibOaAQqooOOqlLuUVvnvVNQWwoqDdgUuGSsSZzLlsQrRGgfFBbdnNOoNyZzYEelLcCPjJxXpHUuhPuUpPWsSGgRzZpPjlLJrUTtuweqQExXcCfFwlLtXxTWFGgRrcCiBbIKkHgMPpmkKGwWhgcloOxXBbnYyNlLLeDdmOoeEMEnTtNuUtTjJIlpPLQUuqmeEuUMCWwciuUnNnYyNfBbObBoFynNYCCkKoTtOFXxZzugIiGStTsGgxXBbFfiIULtTpPSslCcfnNYtTxXycAaaALtTlUrWwhHWWwwcCRhHEZzdDeJjoONKkAaWwXxntrRTROortzdDZTuiIAagGrRCYysScXLlYyTtxUudDzZHaAmdPmSsvVMpsETteDdScPpCDfFwWQqrBbRBbBTUeEutEeTtKkpsSPCcAglLGQqFKkNnsSfbBOowWahHPRCcrpaAvVCPpcnNetTqQEnNLuUlExVAaBZzbvXvVHheWwRkRrKQqYyFUufrRbBrHejJEhdSsDGgqMUuuUmtTiInNPLyYDigGIHhdlpnNgGANzTtZIinYoOZzaAyVvYyXxpVeEMMmmDjJdVvqwgGXfFxMjJmWQdDLlkKvvpwWPRrxXMmAyYaVEuUnNgGotTYyMmvcCVOYyYcCEeEeVvsSmMdDyKkjJWQqSsLlqQwemePpEMtiITPagGQZzqUrRXxhHxjJXuUuQzZKKkrRmMKvVpPkzzZqQZkjzZRrZxVvRrcCMmcCTnNBbNYynqQEQqetXxTtWwXzJvFfsKkFfHIpPihSVktTCcWwKDPDdpPpDOrhHCcRTMmEeTttDdwWZhHZzaAoeEgGOGgzZtTzoPRrRrFgGflJjFfGgBbEtXxTewWKkLnpPiIlLdDNphtJjnNAaDdVGgvfFwWvVOyYqqQdDRrjJQoMmeETOojsxXkKdSTwvVWtPBbpsqpTtPQtThsSCsScHmSGgpPtTtTIiPpdDDdDAnNadseEMyYDiIFfiMHhpPOHJjfXxyYFJjKKkkiHhHhnYwWaYyAlLxfFXyEetTNlfEeFLSmMxXecnNAaCAaJJjYykIWwnNfFifFdDkKKlLVvpPolLkoOaAKZEAhHYbByyYaVvNXxnTdDmMjJtDdzRrkKTtZBbeOrBbRoiIyYRrIcCbBCcUuiIYyDdFfHdDjxiICluULlMmLwWiIqQvVrLTtlRnDdVvwWNoDdOsSkKqoOQiIcEebBkKZzSOosJhHdDeEmMvfFXYyxzZlolLBbOLGgjDdaBbAfFJVvGnNgtSsAaaAyGgxXYGNncrSaAsJjRcpjJkAaAaKPVvCkwWKiIjJlLCgMmBbQqQlLiItToEeOwbdBAaFfNmPpirRgGIMoOXnNeExZkKznJjWrNMmmMSsHFMmfBbBbgGfSsOoFJjaNnMmKuUkAFfXxrPCceEpdDFfKkRhLluUnNnbBXIoOiyYvVcCXxxSrRaAJXxjslhHmMLXkKOSsiaAIUuuUUuLliIbBuUUuEetTUuWYyuUqXRUuFfPpMmlrKkRkKLrtTlLVOBbovyYxjnNdDWfWweEFwubBUJMiIOueECcAWwrRSsxXiIayYUPpmMicCEsSmMbGgBAaTXxtqgGQmMeAaFmMmMThHtfDdcCxXIFGgfPgGppgGiIrRIidDIzbhHBsJLljSJVvjZvdDKkzZXzVLlXvVjJxvIZVvzRwVvxXWUNKknRGgrIipWwPeEudDPpCVvcxXHhsxFfXlLSsHhmMHVbzZBvhSGgZzYySsgwLlYycwcTtCQqOoWChHWGMuUmKkgNnkKzZlLeElLLlGwZpPzzZRuUrgxXotTOoOZVvzcCCcKkDdPpRrFxXZXxMgGmqQKkxXzVvQqdvnHhgUuGNJsSjVDZzdlLgGDbEeBPpREbBAaeGpPvVgDQqCccCmMdTtVviIKkrAaNnBrRrrRSJjsJzZNnrRjRaAQqJMmpPXlLUcCuFfJIiQqjxBHhVrgGOoRQtEeTqjJwcCaAWvFlEeLuPWNnwpfXSsxkFfKWwFEOOooAaRdgGDrJnNjgGyCcYTLlWwKkZzWwteUkVvKhAarRHMrReEqPpQmfFrwDmMdmZznXxPpNMwWbBrBWdDwzZblIiLcyYCRkKRVZFfqQzXgGcCGggwBbDdtTLlJQUuqQOonLkKLlRLlrlNRrQqaAcrYyMmRQkKqCpPfFZzxXpxXRVvLkKlfFOoKkQqrwWPpdDPJjrrRMmRfZDAaJMqQmjPpPFkKMmfCIicpDdyYyCcYVtTvBbfBDdbqQFBbzFfZyJjiIozZDdoOOWGjZzFfpPcCVvJgwSsPpxXEebzZBddTtDcCXxNnDHhEdSuwgdamMAGgzZBMdDkKmdDVvSsIliILHhVvpPFeELJcCTtGgWDdwcvVClLeEDyYdtvVQJjQSlLspPBbDdlIiUurRLlKwWDAaRzZrKkHhSsdJEejkbBUNnsSfFzZJjxNnHYyOoYyZziIgGhxXJjGwgOoGpPHhWgRfFYRxXryjnYyoOYHhnNyNrjJRIxXiJrREeUbBurnbBNtmMTHLgGlOkKSsgtghHMxXmhcCHRrLlqjJQQCcqXxIiGMkhHKSrRoqBbgGfFQuRrUMHZCcKKkkzEelLxXhmMchTttSsLloOrRGgeGgtkKhHTlLEOgGpPoEeaOoKbKkYyBFfyYmMYTtxXTtynYyGgXDdFfFfxAifFIaNJjvLnNPpLXxCcWXcCpPVjJtTvbEeBxmSsQqYyPpZRrBlLbvVjUuRDRrPpJjuUicCGgxdDqhHeEkVvKRrJjtTSsEBboOxXHUyYRrkKWcCwuIiVvhJMmjGgCcdZzDhHDdGioOUJjlVvLqQuUuciIwWiIcCCJjQOoRrbBCQqsScxbBTOoKbBlLEekrRYCIiHhcOoaAFfyQYWwyqxtTUuyZfrRyYFkMmqTtQuPpUUXGgxlYTtycCFYyOrRoqjJQHhxXfKkcCukKzZSxqQXjpvVHVvRUNpPnfFcbBCuyYrkvVKceECJjEehHdDOooOhIincyIiYCNTYytRwWKEekMmMbEeyYfFuUQquUnNBUubBmPpLIXxilnJjMmAacxqQXiIqmpPMMmlBtHhIWwgJjiIeXZMmkKpPSspPBiIbZzpPAZzazNnwWMvVVbBvMYKkpPNxXnUuuEeUEcCeJjJjAKkVvahlLuXxUHJAajUuGgpPTWwxsUuzZkKfPpbBkKFxXlkerREKrRwWLlLkKSGumKkMUgcCXHxDYydPfFpOZzgGjJcCwWBbbyEeGedDeEdDvVEdcCBbssGlLFfUutLxAaXlToOgCheEHcZzEgGetGgOnphHPNoxXeEdDOoTteEoOTbBPpQGgqfFAWwaYcmMdIiYCcyDCONnFfoXxOoiIyYyEeuJVuUILliFLlUudSxcCbgGByYXzZNngGcXxCHNnTnBbEesPtTpGgnNSXxNdRrEeUYyVvueEEAaegGZzIuUiHhCcAaqZzQOoDxHqQhCcXbHNnhbBBrCcRiIKkdDYBjJbGgzZyZzsSvHhVjfFiIpSNnUuDPuUpdsauWwhHUOokKDdARDdQqIikNxXrRnmMPHhfFnNgGpKlLrlLwWLlJjIiPnfIiFYUmMOouFfyhkKHqQBaGgcbBCaQqdDAetTbUuBVvMmdDEmWMmwkKMdTZzZzgGdDgGgGiIdDlLhVoOvFfgGEeMUNWwmMmvVMuUbGrRIifqQLPpwWlRUurcjJchoqQONnyLRrlmMQqUpExXdDeEjLOoliLuyrRGgYPppPYyfFuYyQqLlSsUWwnNzZpEeyaLlmMAYPaAvVpxXPKkjRuUlJjyYLSssSvVrYygGRrgGJRrqQqdDQeElMmsSdxXMmDvUuVIiLUIdDDwWdojJOiIiuKkQrEeRqULZzlCcEekoOrRkGbBgKJjzOkKeyYEofFSsecakKAzZCuoOlddDDIBbiQqixXpPwWkXjJYyxIiKcCfKkWAatTzZnNBblrRoOtTLtTQqtfFTVvtTsSMrRMmmGgqqkKDdQQxXNnYgGywBbfyYPpraWwAEEezZeWdDdDuUwQqvbNsSnlLBkKkKtTpPVWYyzZaHhOMmtqQTnaANyebBEOoymMXrRxYywvQqfqQFYkKsSYylHhLHhLlTXxYygGFRrfwWGgvVOoUuSifFIMmLuUuUYXxylRbBXiIWwxreEBbMmuUuUNjJjJprRPIMnNmisSehHEvVqqQJjpPIijfFJnNQdDXxKcCrRZzqpPnNDEewWdfrRmMCZCczZzHhKkcjJCCcXxEeMaAiInZzNMaAmmLnNCdrRaAtTDLlYyTTpNnPAatBsDbCcfHhFBhHdGgKIdDiXPpxNnkxXAaAzBbZakKrOoGgRHXxhttVVvmMmcOoGzZGLlgORJdDKkjEegGsbBAUuvVaVgumMbBoxXbBVvSslLxXkKqbBnNsMmcEeCqQSQeEkIiKSsbBHIkKitTfFfFPwWkKLlbBFGgfEEJjlLzCcZkVvKYtTyRcPpTtAGNngaDdPWNnnqyYQhLltTbhHXxEeARlEeUoOuqoCyYTtciIOPpQwWLtTVvfzZVvvwWnNnCcjJOcCdDwFfOIVvTtkKfQqFmMfiIBbFEesaCcWwLlxUwZEQqePpbNnQqUuVEecCKZzBlLFfbvVQqYcCypPrAXxiHiIGSdDoULlGgTZzttTMmbdDBdDusNdyYDFfEXxPpHyfQqFPgGpVvtzBbkeEFfsFfSsHhKkSwWHhLltTFndDjoOJHhlLQqVvlLIilMmNnhHEPpeMIiAsSamWABbJjVvgGxXQFfAaXxhnNIimMJjIFDLldAuUNnTtaeEuULFflEkbvgGgGhPUuIUjJuRrRriPpOoeEpHInNqeEdyYtqQTCcNhZfFzTtWpsSPBbOoLlcCapgGHhHoOomMvVcCOuUhpPmMoNncCOGgNnHhFfVvAoOKkVvzZakNoOhaAGgpiaaOoVvxtTXAvVIcCiZRrzOsSrreGgnjJtTNuvVUxNfFLlpPxXXxuKkTqMmCcQtEeUSslLRMmUurQqjmMVvgGaYycCCMmkmdDMCzNhHnuUzZZcFbBDcCvVdfxXxTtXxpYykKpPJjxNnXqYyQFfbbIhHOoivVBBKkyYcCgFbBYZzkKmMPVvptTSsiFPdDNnhHjYEetwWwWiITyzZJpfiIMmNZznKkYiIyqQElLjAaXPprRqQNvVnxcCkcCKvZzOpPoXyYxhHOoFSsjAkKaCJjjJSQqMmFfZEnNeuWyPpabBAbsSBbcnPlGgLlLzZSBbtTsPeEGgzCcgGZlgGnNWuUwZztTEPnNOouUpqQwOmPpPpMOoWPbWwVDdWHvVhJtZzTjwMmsSvTtwrRWgGxNnXMmhHkKyYeEAaNGgJjzbBZHzZxmMsoOQqSlLXeEtCcMNnQqPpmwWVdDrqQmMRvVvLsZUusFfnaEeArbmMjJBRgGUeEuNdDrjJESQqsiILWwekKQEHheAazjJxOoEenkKNtTNqQrzuUZkVvmMmlMcCdqQDmxXSIisOtuUOgGoTRrCcuUvVdDcCnNnzZMmXxxXPnNbBpHhNHhrFjFfJJjfGkjgGJhjHhqdDFyryuzZyYAUsSuawWbfFVOovdDtTXBbCcfFfOolLFLlGgxpPuxXVtTDfFdYZzykXxDdKQQqgpsSPGqvVzZvTtvndyEeYqdSSsCcpPLlsrROoJJIinNjOojrRIiKxXmMMmkoZjiuUIJzEjJelwDdWLcCtTsjIiJJjJbBCDdcvzlLZAxXtTaUuFsJjuUIiIiyYyeEYiIfFSfIiwGgWKkSsGpPzHhSsokMmNnxoOMmJjPpMjJqpPiIQJjjHhgqQGwtTjmMzOmgGeEMRKkUKkKkYyzeEQUuBwWDcCdVvbeEqjJZCczZNnxkKFfHVkJibwWPpmEdDxHhjGsSgeSsvYyeEVsSErRLGOottTeEBbbBTnNmoOVcExbBNnVvXEegGwWWwwWVROorORroPpvLTEelAarkKqUuQiIjJjWwJosSOAjBryRfEvVeFrYRzQqtTYyNMmBbKmxezfeYygGRGgvVInNiYBHhgGoswTCctlLWSlrRjJVNOuvFfaqQuUEeDVvdfFLlcAYyIiJoOYytUuhUuTtZDRrYnNyIiDdQqBjJcRrgGCKJvCcUuyYRrARzZiIypUuiIPYwzZOWwHhoBbWrdbBbcKkCGKkEhHOoiIhEdDJjeyYnNcIieKkEhwWKwmTMmlLzoOZgxyyYYXREpPwWGgOyYvVoOojJLlOotThHRrAViIdDRrGRUWMqQWwfFZlLVnHhNvzbCcBkKJjFMmfjgGWwUIPpyYiEexeEbBCiwWfFIcLbBujJMyWVvwYmKkUfFYylcsVaAvSRxXrPjJpCoOIkmWwqQQqYyLliyYIAaxXeEMeHwSbBHhsRmMVmMfKkFRcCglYyRrdYyDJsSIiVvCcIWwiZzjDVXxvdSsEVvQqWweDdTtZzyYCcQqQTtxOyYtWwXnNvyYAYyaTDbQJjqIiLlBxXotcCJsSrRjHhuUaANvRrVnAuoOUaMmqFfEeQcCTaAOaYUBOhHofFXpPxZzbFqQceMoOuQLlmMqUKkroORmVvuUvGgOtirRFpPfITLlfFGtTgoUpMcjTtffFAQqrkKRkCLlcgGKxVKklRrLfFlTtEeFfbVlLvCctTlLqDdhNnHQAnNnNaaAaRrNZzNnBbndDpCCciOoIuUUAALRyiIsWJjTuVYhIipVvvVPMFfVvlPBbyrRpPeEYyYpzZpPXxuhHUwWLPpFSDVvdqLcClQiaAHJjIdDiiINnsSkSsqsSkTVvTIiPHhmqQMpSgGszXxZvJIiVtTvIvvVvBbVHhVULlgYjJfZzdzZLlyYhHHhGgzZWrRNklLKmMZznWwhOoJjQgGfsEeunNXxyYlhHcCjJLURSRaAryYVuUzUOAawRrRKkQqfFrWvVUuMmaDShHhJjoTtsSbsHhSdnNDEexXSWdaBbBbAFfELzZlTtxeQcCSsqCXJjxkKtEetpavqQVPYyKMmCcvVkUrPpREewnNWvVAhHNoOOopPZzngGdDCiVveEKkIinEejJNdDuUIcZzYyiIovlLSsVtTIieOzZMmoFZzfKzZkjOvGgetTOorReExUJjuTtsSAsSFfaXCDdchHrRKkXxhjJhIVvErReBZzFfiDdIbKGgOSsGgnNolLuZzoOQPLzbAaUuBqQtTiIREWwSsefewWaWAfFinGgNlnNcBbCrQhHqRCcjJLyYiIIrHeYOoygtTGOoRSsyyYLMmUumMXxFfsSsSFfpPIOoGKQqXxrRkgiTtLPpLlllHhYNmMTtPdgGktTKDhHkKLlpnszZSTtZzVDdhHmMjZNgchlLGKkIiyNmMiISsoOcOFhIiDduoNnuUZcCHAJjbhuHRrexCcXEhZzyXxYdDeEyEelfPpUPpkjczZCJTRrbrdDwWRfFBtTfHhMmFkfLSsXxHTthsJwXxWjCcZHhbBwYyjJciIUJxoOXjuCkDdwWxrRXiIBSYyuutTpnDjJdzGxwWwdDEeAlZCcXxzLuwWgGnxXNOowjMmzZwHhWJUZhHzhHudvpPVSsDrRSMmsNpPdatBPpqQAaRrbjeEUuJhFfHkKFfHQxXcKkmSsMLkLlBbUuKJUlfNnUuFuUVvNnFAQqsSZzHhqdDqtsSTLHhfUuqqxNnXbBXUuYyvCjRrJhwpPWHPBbDUudzeEZoOgGVEEaAlyEetHtThHyrRMmYnFEsSsSuDvVZXxFlLfzZiIzbBboQqQqyYOkOgGoKcCvEFaAfyYFfGgaXxlzkKvFfcCVCcnNIRriGWwgtvVjJyYOjJgGodxXoFfuFfFbkKjoOJBbBLloRcCrTtEejJBbUtIixbBxXQqXNnnNzJaAjZCvqQVJjcJxeEAaXWwZsUuXxSOoqQLlcCeESsVvEpPkOIiWwInNVviIiFijJtTuiIGghHhChxXZtTJhHyYjzmMnLydubBEchxXxpPXIVkjJGgKviWwqQipPICcyGfFgYyZecimMFfFeElxXbleFfQqEPpsrpPoOwuUWEgGeZzXHhxEeRwWeEulLLlUnCcPprpPjIpgGPpPxtTXVAajJZSsVvzzZYyqQxtQSsqdDFUuTlLtfubBEQqoOFfpPmMNnneHhJjEWxfFUuLlDdXwXxNlLeEdvVSsDtTEaAzqmMKkZLXvHhVEeYyxLMmlMfFfKkiIKJjcwCpcnNiHGghNJjkpPOmKKFfcCqEeTocCLlCcHTZVvaZzfFbBbmnNOXxfFoCLlqQIiJuUdFfSsFCcfrRrRDbfbQqqQlFfLTHUuxXUIiuhtIitTNnMpPfFgGbkKBmKXxevVJjlZpPzXnyOoJjDdwsSWxXDDNneEdoOJXxjNIpPsSpPOoindBPplLSJjsbzlLZSsMtTmYwWNdlLDVaAvDgGdGgDbPpBdAaxPXxpXZmMjJzLUbsSoLSsuUlOgGIxXnaAOofFlLhHNijhLpPKxXvVkCIoinNyYDdnNNneEZzIOSsIiCsSuUcwWpPMUlsSLuRXxrmcXxCGaAtjJrcCRbBcWwxsnZLlxXBbmYvqSBQqsvVexuoOLlMmUyYXWwXxSycgqzqEeCFfcYwWTgGcmltqQFfYKkLEMyYoOmDxkKrKkomRrrfFwCcsSmArdDRlRrBNOokMXxZoOJjxXapPAWCcwGsSZjRrEwWeEmRaArPoHhHGgJjaAhNnVkKyYNlCcQAYpPyazVJWwjZwvbBVWbgGPpxXBzBDiUuEoOKcCLliIGwkDdGxXZOehiZzRrQqAaIlwDbtLJjUUtTFffDdFUuGgutPaRrAPGgtTzxzZlLXSmMaRrQbBnQhmMrFfRpPoObsSSKnNuXxbBoLlOUNxduUDXnTfFeEUurjJaAjJjDdbVvjJBJGgvkUgGoOzbBKoahHABbOoOHtTLlNXvVvVhdDCcnvVsSFfenNuUbBpPZMmuUVvzkMZfFXNHhnRrvTtZzLlCOTtoSsEeBomzHCcsSqRrQycCOBbMdmMiIxiTtPCeEyyYYctqJrRQZVlLvrRVVHwkKaANIiAaiIdDdDTfCcFtnWtmkKvRrPxMsSmSYyWwgFVvfvGgVhHKkJjKofFOvDJjddDfFByJjYMmbOzgGCcNrVvPorXPQYyzZunNUoOqeEeEVvpHBRYyrzJjZArxiITkPpKvevtTQqTiIYyCdDdhHDbBbKkBaMmVDuUdMDYyEWwehHgGtQpxeEYRBOlLokHNnhMtTpPXlLxRGHWcCdDwJjSQMmkITvBFfbVzbBVvReLlMkEKMmkNneKkKEefmyYIiGyYgMOAEekKkKWwBfQqxXFtBbCcSoOVvuUiIGgyYDdNzPgGpinNMRrmfeUeEuEjWwJUutFLlfQqpPaqBbjdBbxXDTXxFdcbBYvVoOoLTLAmMEeyGRzZzZGgUmMJtmbBgiIGJbBESsyFTtaAzfFMmOoEkqEeaASpCcPautTGWwSxPXOjJoxVQBwWBbkKxXfFMmrRWKRYyIiTuUttoOjusSURJjrJPpqQDdWoOoEeRrfFkyYEXKgLwKavVAxOoklLWwpuaAUYyPnKkPpUffswWouUclLXxIiAaiIuYIrRiyglbBLTkKkJjhHrRFWwEeStTznPFfplLNfCUucSGgmDdSXxWeEGkKgCMtXgyYVPtQjbBJqQNnOyYoCNnHmMjaAtuUSkNJpPZgGzCcuUaAWwjeOoEgGQqQqSsnMGkeEYyuUBOoOgGowWbiINMpPnNbBGnWcCcCVQqVvYVWKdDkOoQEecExcChHuUAhHaXzZLlWwlMvfjJhPpHcyYaxXKqQkBjJbrRpolKZbgGIuUiBbPpBgsSGyvJjgGIlAaSewLbJDdvnGgaANVhUfeEaACKExXfAaRqAXxItvVTijJIUZzucRaAYqJrNXlLxYypNVMmvPjJkKpgGVvHSosSTzZEzZePpIieEtOaAUKklLFfYcCTtEyYYyOoIXAaVvvVlhHgkKXxdoODzZGgCcGLEeWwnnNEzPpVmLMbBqxxXIEeFfiXtkLlNnVlHNUunzZhPpgGHhZzwOoWTtYWmGwWgOnAaNzZomlLwewDBbOHPphewZDQaXTtHhwmMWqyYQLxXlweEeEWMkKzzZGgZDdvGgYyabBaAJjEeAmPpbBvXxxXiSKVvDdLxXlksDdnNcFPpfRhHHhThHtrCxlLcaACopPOtnNTsSnKoVvxXgQqGxXKeEtwaAXxMmvpdDtPIipXxYWwiGYDdWwxnUugZzpPFAcCPpXbBXWwGgWWdSswWDSZVnZzjSEnNRuUrUdDkKPpCcFfmMKYEqjJjzvSsVZPpWDddrLlgGRqnNQHAaAWHOJjBbNcCsPpeGVDaHeebBEuUWwuTtUEhrRgGwxiIXxFfpPOTtAaocYNwWpPLlEnYtNngGEetaJHvvvmMUIyYuPFcYtTBbAaGgyYXxZsZHtBZzUuIiaADdUxbBXrRuUPlLFfWwqQpwWLlTtgqidarRRrdDZzAsSgADvVemzLIuHhUsZzHhpPoxXvtTVrVvzZvwfFXxWmMtTVQqBbGlWwLgRFVEWwIaAjUuUuYSsyleOodTbBQqKkRwGFfgGgSUlLMmuvfFVyLlqQAaYoAaSNnOZWwjfFPFXxfAbBaaAZNnSscAQJjNnkKqatTtTHhbBhWHDdhvZzVwHChHhMSsmTXxtYoOyRTtrSFfdbVsSbfiILlSsQjJzzzoOZuUZDOOTfyZziHhPpcCIxXPylwWpPGgVvQjHhLnBPpbNAFfVvOfFoUtGggGoyMmDdfZEeTtzrNnoBsOCcjsSyfFAoOLllLasSnhHNYDdbBJCcoLltysgsSGSsaAaAdTyYYgGVAaBbuWwUvsSAQOdPpiIQoOCRWwSscCchYXxKkJIiuUjFtTGgfHhAaJJjlffXxFZzFKkKkitTqhHvzZYyBFfBLlbewWmWNnwFarRigKkCcNnybcuMmsTtqQfKkuOPpnNoUaANnxUdjjJVvgAoOkKfFaicCXUhHsktTbBkKWkprhVOobBbBYqQyAascCSbQfjcCJFrRbEXxeSsdhAaNnseAybBrRLlYatHhTUCceDdEWIiRaALsGgtLleAwkKWMXMNnmMzcCgGJjaABfFIiPpbRDvVdrgGUZEedXxxXDMmFfvVZChHQqaASsQhdbBDHSsmlLIidqMIithcCTtHklLjaoOAzmMZVvEeJQcCqBbDdEeLNqQxdpfFiIjJfFsSBzZqVvQwWmZxXOozMSfSsFtTxXXYlLdDsxjrmDkKPEevVplUuqNnaApuYysSQyvVYZGXxguIiqQUuVadDAxXLlcTtCvCcAXxXRrxbBzZQqCMaAmMzZIiVQqtfFyYazZALXxwFBMgdjJDCFUnNuCckKdHEehMfDdgGVvFzZhHCcgfuUZhhHHcTtIixXcotpUnNuPYRrnByAZzaYmMbNnKkPpLpPlPpWQpXxuoOyMmWDSsdBbfFzvVZzzZZXaaAAUuxHhMyeYyEWIBbidDwwfXxeEEeFzZDRrOcWdDDdphHInTVvicCItylfFLhFfHYNVvhHiUuAazZPxdDMLlBgGRrlLbicCIqrRDdRUutTdDlXxLcqrRQJRmJTtrOotTRtTVyYWwKkrXqeEkKGgWDdKkLlwPCmwcmMXtTpURvQohzguUJjGguUMaAmGPpZczTTttZkKcCcCevVOozZeECcEQuPPpOotSFhHXnNGgLlGgdDRrxrhHZteETzGgoOSJjktsDWwaLezAdIiDJRSsryvVBbjrtTiIQqRNnluUdDCSKTtphYyHPuUDXFNnqQMmAaDdGfLlyQgGEeOokKXSBbVvgqzLlXxeEIPnNctTFgGzZfbNnBwSsWObBoLlwWPIiJjdviiMmXSsXxxIArRPpaodDOVvpRrPPYEeybBqQQqwWbimMWweEVrRpPSsvnoOTsYySGxbHhChHcBsoOFfOctTJjgRrGCoKkOZPpFfUumMCiIPhlLOoHMpYmUuRpPrnNUyFrJdDuUmVoOqQideEnJgGhFfkKScQqCsugGNLlWlLDddoODOoNUunntZzVlkKOUqQuUJjEecHWXPXwWkijJezIyYsOrHhUuibBIqQRogJjyOMNuUaaAAnmryIzZCKYyQlJqQjeFzzZkLaVBzqQdDzfFAaOopPxXZDduMmBiIFfbUyBbuUYHzvVbHwCccHXxhzPbBWbTtJjDdSbBsBXsvMmGgVrRogRrGOZOFMKkpPmfiImMokVvXxlLKzUlLuCepPLlZzuTtictxkCcKXddZzsGcCVvWwgcCyYAanNOwWSRrYyVvaAVqQhIhEemMHOoxbBcCrCcBDOnNEsxtMmTGgOpxDdnnNHeEXuUxVvmMnNPphJNniIhUaesSNnNuiTtIGZeOgaAmXxMzZdLQqqgGjJsSeEOzLlQqbfTtWwxwhbOOElLAaYyHhzZJEOIfHhFFfgXlLEfiIaTGTfleLxUudyYDXJjxLGgjJLzZcuUClktTpPmVvRXDdaAnNzsSsYyGgDFfvVOoVvmXLAvUyOodpBbDdFNjJZzLlNuUHiAafgjTtgGphHsjJSPHhIFfFxXRrwcCmGHHhhxPszZZTtTtzXxxbNnenzBbOSsOoqcgGvVpUlSsXxfhHFCaAAanIioiIOOCHhczjJZCchjJHcaARiIIirpPrRhLDqQdBvjJSsVqQrBbxTtGcCQqgBbKkMzRrJjCcfTqfXmnoOSgGctJjTsZQSsqzuUvVfxinNcJjxXcCEeCKkfqQweEeEZzfTDdCuJjULkciAWwtNnuUAKkakKgGbBpOoPEiIcCoxrROoOoIaFfuUFJjGoOgErRMmycCXNnxKUueEtFfThUuNYySaAQqjJscyQqRrQpBbPlvVLsSsutTLFflthHSscrRCTUFfkGgXIpPOoxqQXMPFfYoOEDdebBgGlDYyhHAabrRBbZzBjJdDeEIidKQqMmcyAUusSSbkVvtGSsIVbcMmvbDBOohHbdXpXuUKCcBSkKRjnSsNjqEeqeCsSRbBpLOBLlMmbqmmNngoOGOxNyYniYwWSrNnRsyUurxxXIiVvSsJjKOoiIIixMZzSpsSuaAKkUMQFfBvVbTtRrJVvAaYttLCclhQnNqzZeZBAaEcCxXebzqQdDWMyYUuySsROzZozwNnWZHSBbhqtTQTOEduQTtcCGkTtKQqDdMkAWwaHhfFZZzeypPPpBaAuDdiUuaApPfUuFZgGzZPybBSsYXPDUuEflLdDTtFkXxCmOWwnQqKkpuUPfFNJvRlmnWIRiEfFdHGdDIictZzdmMDnAaNrnNRSjXxfFOoULlnNnNubBkbFvVPShuNnUuvuUuUREbJjBeLlYydyYDNUtTuCcsdiIDyyYYEetTILVvnnNzzZJJBbOjJeEJMdDsSBIuUdriDdfFXxOmPUufSjpbBPELzDdRrOYyoJpPOxQBbVvcHNcVJjkKosSocCOqQOEEeeghHqQwLCMxaAuUXhHTfFxXnjJNLVaLjZolLOzFTtfyYMETtuiFEeJjlLevVEbspVvPEEeeESsgAAaSsaAlzgxFfQvPPPYnqZTtuvgOoMGBbFfpZrRzHaAnwtApPaTriSEehBbWRrwbtWAaEeSsTVjEephHdpPIiiIuExeEQusDdRXeKAacCFfJFyOoYQqFfZzrebiIuUBNnEGgSqbGguUTtBrRfurFfRUFsWwOLlOWkKnNTXJZfFCczxwWXiIjueEdlLDBPtTpgGTBMmlLtTuaAjJiHhFbBSsSwtTBbWLlADdmMxkKDekoObBQqKCcJClSeEdgwWGqogaAGnPphuqCDnNwbmMBWOyYoXxfjasGiLlYsSEiIerRQqeWwEvqQfLfFlFaNCREjJaAgfUbBuqQIMeEIoaAIGgsjJSiXyCnjWozZtWwuVFfhyEeoEnNfFHAbBmvVQIikWHhwAGMwWmKkPlrOoYyPpBlqeELlrRGgQDeUtWzZwpzZPcCEPNeEnpeaJjkrwRrhvVSsRNnxsoOSLmZzMjptTOoXnvVaAcOlLAlLaxRrFfpkKPXQqmMBbxYErRLobBOuUeCQqAacTPptocCObtTBgGdVFaKSFfmMkVNnMkKnkOoVvKfQqGhBbHgLletTtBbTElHhLkMxQqXaAtWwAmKkAmRrMPiaAIsSIPfkPoOBbivMmOCceEvHhHhQJjrdNnwEeDCcoOdTtIYwWzMpPGNngmUuhSJjsvVHhwWnqsSfnNzEBHapNGgJNzZaPpLKVvtIiWVvwTeEwxgtoYPFfXiIRnrRGJjNaWGgsQzZoObBYCcOEenbBMQUuqVvmiGkKtTuQqUBcCaAVvvGgyYGNnvVzZeEfOJFEVvOoPfnNUUuuCcnIjJGgeqEeSZziiIILlFfmvYyqzRGgIyYiwWpciIRzWoMbIBbpMmtzZMzZybFfHfRZLCLlPpcThqmvDsuUSsSdKkXDuyZzSshHYUdxuUXnNXxYxkKXFTnDJjSjnzZbBtPuUcfVEevqyjmKkuUeWXxwUWnNphLlHPBbpPWyTtJjYwwuExqOohDdHvWwVZzRrIPpEwOoLYsWMDSsdpPHicCuITtndDLlNiVvUtsxXlIRrHukKyCcIiMmgGsPpvlLDDYydbdDBbFfWwDdfdqQZyTtlLcaFfqQNnNeZJLEdRdsSJYkkKrzMlHhMksJYHhyjSRrEOCcNnNXOoihvVjJjuUuUEWTtwfMmhHaUurBpPpPkvKkVKbPsSbTtPitTAsSYwiIpPFfMjeOoEmyYMttTTXQtTMbxzZPAatyYTFfpUSHhfFrRNghHGnpswZTXAnMmVMmvFZMRlLrfkKZaeaAEAZzOozYbuOoUuMXxmgwyYWGUqcFfmMtqQJZtTFFfLBjQonFcCMmYtTyfGIiGEeDXxxfFPEepdDpOqGgnRpUubDdBzZWwSwWsMmTVvtCcOojDUupPMmLIiyaAEneEGgNTwWkwWKQcCtTCKkccJZfFzCRddwuUWNnjfFJDNOyjGgXxJmtTSBtNeoOvVMZExkKXTOkKowZiJnUueEZHHhpiEekKIcnNamMAqQCyEeFfYgGfIUuuiDQhHYTJjsljJLRNUJjvkuQqUKVYmMOzZowGrfFBgGhxXixkKXbBIHJjaspKkPVnNxGgXHaAGgecCcuPRsBQqkKQVtTJjvoGgGgyYHaAoOhElHhQawWAqhMmDFWbBKkwmMLloDFrmyPDdrdbBWwjJXxeIiXxHLlcCSsiOoAaIinNtTSTtSsaEMmAapjJWwsSPYyGvVdAaDsSKPgymoWwSHqgANnaHDdvBzZbVqQhtTsVTtvcCniltVqQOorRdwVljhHkeEYyNKknDNndKjrlNnPFmMCPsYyZzhfWBbqRrQHFfhARrajFGgfWncgSsGMJjRrFNnkKvVqxuIiKSRnttTAyYaACcacCbgBSsVmswWOogXBvAUuFfaYinNNdDnOhHUuoPplILVuUVMLlqaNAdDaIPLlanNAKkkKDhZVSsrOHxtToVYyviZMmpPIzZIRSsrRLmrDdBbcCDdzxXfAaMmtJjTDdyAbyYTuUtCLDwvXqRmRBcfXxMqWHhwhlCcCcGrLASsjJbBVqWuBzWkKwZTghcGgJEecCYymESCcGgsQqKdDtTocCOvLwoOwrRsbsZgDnNcBVvTtnNbqKkpPclIvPCNIbgGDJjZBgcwWCcLYnNxMmXPpPeEZzpXUSgGyYTtPzZbByYMSsLoOAqQOsSSsIFgGcdydDYypPYMrRavJjiPpbBIVFfNfdDDDkSsKMRDrbBRdrzZtDYsKkkTGKlMmLlLLyYIiRrUmcZRMUuWKGgQqDdTtbbBBgGcnjJkKcrOohVvsGgxwWmjJIMmoOWGgFFMOCaAYygRbhbxXDdBHiVgGBDdnfqsSuUQrcKQquqQgQVLlPpvyxhWfUuDrgrRGVfFBPpbeLsSoIiOwWYxXcWGdDMwzoOZoIiNYyJoOeaRTQWWwdhHGgTtDaOoMRrvedrCcRrlhljJVqYpruWcvKkVDCUtTlFneEaAdVvHhDbBDdjiIrMmRDLlIHBbNsSnKRKkrYgdLJfdoTmrnFfdqQNdDBtCcIieEhHTbxzZXBTGgtGnNpwTcavViIeErRHhfFQqACqQEsBbyzZoKkuZzUTbuPpjJsFfBGgegbpiRrSMmPpExqQaCcbPdDBbZKIgLwSilbubBenjpPCcWiIiIoOEejDdJIdDfLXQLVvGgzZEevoOVxXsmtjJTMqIdDkKiQyEkKoYRrykKOViuUuFfvOoAaIiCyYgEtFmUusSMCKTSZGgPGPpgpPgGprvSsOoyYohsvyYghHXxGPpXaiRNJkGgKhXxDdHEzQZIiJjzhfMwVHhVdDsMlttcskKfVQqxxfFfHheDbBoOlKVHsfvhFxXNvVRrJiIgQqGXuWdDYyrzeEoyYkzZSsbVgGSMmXxcCFsemwWdDATtZzaomQiIqvjJoOVMORNxlROoOuHhMmTxXttuZcGRrUuSuUCLlcfAtKkTlXXhfFHyYxUxpDdPXgqiGgbBnCnNTtjoxGgEhqQHkKjUuqgYKlQLxkoOFjJBbqfEBbBJdfFLYMGgmysqWVvYyMpPmXxilLYyIDfFdOaAoRElLYOtjJToBbkOoKVviqgGQUsSueEmlEzgoXuUxSjSCcjPpTsJfFjmNnwqoRZzeEhiILlfWONPfRrXXeLbBqNBbWIDdiwyYaEnNzhvfVMHhmcyRyFqBbUlRagGHEhQsnNnNSAdEvrRrgyYGhiIehnqQdxgZzGPpjCZzhLiTMmpIidmMDPsjdlMmFsSDqQdVvoOObwjhdslImMgeCTtZJVvjfvqQXxmMglrFrdDwtThHQqWSsRnNZIkSsIFnzGIVMfFmvMFfmFwOjEeJKIFfIYyYxXlLmMGElLQXNYSSsIlmFfDCPtbAaSsdDBTpPldhHDMfFUTxXCcgcPMmHlhHDOoPpdtRrTOqBbxfFXzysSEIfvumMIbsQqgLYlLBbWxwmPpMWEKqQOokKkUqQueffyMmdDVLlnHhbDTtaALJjoOzIOoDzZfFdeACFrPpPpSGgxxbXiKkGUqQNPpdkKRrSstFnNzZfcqTaxOUuSsCcVJzMmZjvqQOVlLvTtZzoAaBbNkaTFAyoOyYOgGsPylRrLYploWwOLSfPjyjLaAAuULsXXxuUPQAaqpMbBBOPSlxyYgGsSlNXxnDFmdYTdDtyRrDuUMfTtmWwNnFxXxNnwRpeiHsSGpPCcGCcBbgdTtBboupznQgHkKDrTnwQpPzCqeDDddInRrNKPpkaDcEuUTtWwMmkKsGgSgSsGlcMkSLaGgfAaDDdfqQLgZzGlwWBwfFCQhvYyiIwCCAaerREMmsZzSISXMxgGXImrgxjJnPdDBInYBLlcCrReETNyvcCeEVmGhHhhHHgajJBbXPKXlEVvlxkDOoEedKNnHHLWhWNIiHXqQScdTGUNnuYjJyCsSsyaDkKEepZLvFmPpnNGdDggZzxXGHpYyPZzGgMwYAahTtHexYlftVvTCccCUhtpwzNnSoWwfTgcCGKkGgizMyqPkwWpSJjxHhxXZkKUwWJCcsJzZsGgwWxPVqJjLLlckkKDdKCQqgjJTtdXRaVvrimSfFscCMItlLYDpPSsmFduUUQqpPkvVHhUBThHuKIiioOWwwWpUPPppRHhrRuUoOomMzvgdDGMmdDsSIicKkuUTtlLtTuUjGfapPrEgnNkkKxXlOoljJJQPHPpQPzUkKUbgGBTvBGBbggFfqQbBMtTnUuNyYvjiSwGgJdVTjGFYyYyfrAunNUEelLYaAAaoPGzZVvgpOFfrbMmJjEDQqogNUulVvLnaHhyYnSsVrRhPVaIBmMbiHLtTomMfhEebRrKkwwQqGTJEyYbxXBwWYWwRrHhzPpIiZhDdeqBSsVvNzZQqxgtTGowazHhZxqQLlNsSGeaoOENneOzzZCqvVxXiIYyagLlbDvFfFfeEVWwcCZRuXxFexfWNnwpPPVrZPiynRrGZBiJlktTuUKLQFjZNYylLnwEeOoOMkrgGJgGAsZJjdDlLDjSsJjJlBbwpojZaAhnnNrzmMGgpPWqhZzrRHZKCcnmMNIxcwWKkCnNpXxkKnuUdDNgbBQqjcuGvVDxXdoOUEetTVvVvFVknoHnNwWGgwxXLjaAvPLlBbMtwxXGWwSijJvVQAaYhugeZxwWdDjliINnZXxHfbBjNqrfWwGgzWUuqQhimDdppPLUmaAFqcCJjeTroDdzZjOccRrCtqQnOokPDdFHxcCaAQuUoOqvSsYdDvTtVaHMmivVZzvCcVDoWQwWsSqiIwgGVvcGnEgGaAeEAaeGgQWwqJjzwlwTKLYcrLOGsHhGKkgXxUiIoCnKkDdUuUJjkNEcUUuuDdaAOGuUuUZesSEZtTzNVviIyclLCYhVTDzdDWwAnODXxAaYyfFdommiIBbfFntTGhSaAPIoIigRrBUEejRrxoOGoPWRrxCuUFxRvdqQTtXxNHuUFQlQZGJTiPbBbwEeWldPpxeyPoQHRrbcCzZjhHJusTYBpPIcJGgjvVicCioJHhzhHZjXuMeEKkQYtzXfFbBvBnvVPWfZwjJURNKksqQbTBtIiTbPAaDdHQqSssaAEeTWwdDUaAIiuzOvVVTIijmMhHiQKktTGLBqQpPHIiCcrRpTGnvqmGhccCCHjKSwWwAgGoJjlMOooZzocBBLlAZziWwHhIQqSdDbBHlLsaCEeBnNhEzTlLNDDrRdtnNTnNHnujhMmVvLtfFmSRqQqHnNJyosShHNnnNNnIWwqSJjXoOxemMTQqtvVTvVlWnNwLtquUeEbFBHoOEEeVveiSsMBUMmWwuYOPpBboARrzIicIjnvVSUUkKuuxXxXIQVsElLRmMbBnNeEhHpjJjYDpinEeSWQzPwFnDdtcpPCTtesSIiFrEBSslZyYxUuXzUCpPtTcRQqrJqQkoOImMiUEsVviSxBbXleEqQBxXbNnqeENnfFRpsZzSsBFuUMSsiGLxaAXGghHAJoAaepPEJevVayYaOoFiQqIeoyQqYwWOEfAaGgJLlTbIekhuUzXykhHYtsqTtLlgJjEoGgyYDbBbKIiAhZnzSppPNoOFfGgeXEezIiZoaAfstSsSFrxHhfFYnGgFBnNcCGgWGCinNAlKkvEeufPpmrRMFoEeMSsISbzZQqDPcavhQnZzNSVqQcKkCqOoPaAwPTtGgrRpdDqkKYoOyQlUgRrnNGifkEKBbkIUUuuSsSGIisVvSptZwWzTPBpPpTtRBbeEyYEEeNduDdvVUhfBbpPtTFBTEetzmmRsyByZzswKkmMjbJkCGgFfNDdnrRWZHRrjJxXxXiIAtPzVvoFeENESbozKVvksrJMwwsSWXxaAhHwWBbbBzMDdbFsjKkqQCFfcQqkDdVvrWmEmbEezCJQqjxTNHucrRKuCOoWwXWwyKkKkDdCKkcdDqQtZsHonEeHhzVvZSqeELwWPctEeUuqQZqsSsNaPWbztvDPpdVmgyYGZToLVUoFfOvRPKtlIxXiLoFJjEefibBIjYyJFywSsfGVmtnNxXKknLlKkDfOrFfRgVvGZGgYRBaSDdfFsxXFRLJNnFwWzzPcDhqQHSzmYVOoUIicCUuaADzknZzKbzZpclLCoORJjlpPxXxbMmuDDmyQdKjJgisEZejJEKCGecCVdDvYiIfuoPpnxXTIiuUvKxZCcCjJcpnNedDCcbBXCMmcqOoOaAkeEKejYpPaOtTcCRruagJyywVlLtpPKkfkxunAbQLxmMXJPKkHTtSQqYcylwWLYCaJLljptTiRPEWuUFbWjndDCLlFSxqbydoZvVHRCcoZzHqQKkRNnrHMBDdHhbVGgwtuJjOwsSpPgdOWNMmncIxyOgqBboRrinEjtYyCgGRSneFfJnYygGNPMmyUwuOoaxXGHsgGShttTyfFfYMPsHAaWMmTtwhWwTOHhIrcHaKtutEMmeoeEOHKLQVbGWplWpcsapmMJlLAaQvjOoqGUUaAddRrGGEeKkyYgxxXCcDdXWSNEeFfypqzedDmFFJdqHxsSYyaAyEeoJjOknyYdaHEqQxWlLxXxXyZwJbBjiIqQlLrQGPxXYBbAaKkypAioahROcAabTWOonQovVvVeEFfkRrbBspmMgfFauleKkYyCLlUubIyYTwRtgXCHvVngGFuUvzZJwuUCtUbJJjnNjYbRLbPGZbSBLlbUuObBaAwqQWSYRGFwxXKtLxXllIniIBCHmBBMmEebbPHcQqSDtTMVydDKqQDdVyYMmQqrxfUStTnBSSsJEejsokOxXvVIDdDechHUWRnkRrBDcCrRdPLlUBKmMrRGoTtWkKLMmuUhnoHhKzSKpPDdczZnbBUCmhoOmMHMkKcEiwBfFEexXcCjwzZStAaTsGKFfkWVvOsBgGbswKBjLXixMDlMmoOPvhHWPpwIgLMSuUBIqUjJsSQqlsHhuAaQSsSfOadsmlLYRvnNsSVQUJcCmymcCJtThHBvVhdOozLlRldDBxsSPtGgfSKhELKkDyYmSFKkZxIAaYyzJzjwlChTtpAahKbBqQlYuFxrrfFiIMbBgGsTkKcCFfaoWEHhnrRxQqXNIiesPpSkyLlkKQqFfFMSuUXsSyaBNiIIknJjuUNPQIiqHeEdHDXsPkaiIlLAKpSsOoSxwFfWhHMmmlRiIpLaZRraAlcCtXzRryYZSiNnCEqGNnPBvlLVgGUpeEPugGYyHxxYfUKivNnVFWxXeElLnzuUqqwNGBbhqeEQHwfPjBFydteETDuCxXcsyhUVvPpWdLaPEkpPgceFqxXRLleAaEqeVKdXxsZplLJaxXAycNaOwxnTDdtUHYIxXvVMmEazjJxXXgGsLfJAUvVjZjItkhHNYytJjAyYgGxAmwKkKuULlkpuyYUPnCcVvPuWUtTkjoOlFwWoOEQHhqeBevVlPpZgGtoOTzRrMJcBxXgyDdYGWhHmjUudrgjgRrBFNNzZndzZEeDgGKkquJKwNOjdEBbqRXxPpWwEeWwQVMmdDMVFNzwuZzFfRXxXxvVHwhjjJqDDdGTeEtzYkxDnkrnIMmFgnGrEQqepwzpPaAZSoLlOGvrrDcCyYJxDQiRhHaZHZRYyEVvppPmMmIiFJXsYypPbBSrRqQYJFYyBAaakFfHhZUqoMGXxdMmPpPFfGgJLlbBfFjENCpPWwWwpevtTgGoSsOUmMunvVNnsovVWyVvYeCdmzFefbtlLyYsLluhAhzZnCcEeJPpzUEbAMWCcTRMmYyrtsShdDQIiRQqdDQMmaJDdfvZNnzVtTFvlzYyZoOYkKlLsjJAapPoQUVvhHuquIqQiUZzfoanNXIiFNuJJjxXeEGwYTJjvVhZzDdPUqQrBbJshMjJyWwokDdycLkfFKQSPrxmcKaAkZzHUvFcjqIqQMsJcNqiKkZAaMRrmXKuPLnNycCLlTtGVpTsStytqQTYERqTtQKkPbBmuUMWiARDdbZWwzMvjPpnWwgLpOwdDfOwXttkehNNkjJhoYaMmApybBBqQbCcYEiIvVfmMNnFSAaswtTyqQXxeNCPVvkVvfZjJMmVFPDAadilLIOKMmJsYyYyvYKIblXVEexXNQEnwESjcxwWJPzbSsldDZzVNSsnkjJdDdbjTxXtsSauYytNnEOjUiNqQjiIRGgZzrJGWwgnoOnxXNhKksSrmmMVvZzTsTthTYNkXxcRrCGrCmtsSTXkKLmMlcSwJbBgFHxQuhXxyYHrRTaAuUOoGeEkVgGdBdePHhpEZrReEGwWJBSrQqvKiJjVvByXxuDdPpUowGHwzZWhsSHWrRncsSiIqQsNcFRrfWhEtgLQqMuURJijbGgsRAadCceEmMACDdZDBbSsdmCcXrSypPdUVcCKKIYMEipHaNrerXbBbBfKWhSscaJcsoOqQfFVkKyYAOoqTzZcuqnNPEVWXMmcGghHDkTJjaUucicPlLdPpDfiuJAaIiiBmdpPpDdNyYLQmocoOUhHEUBZTXvwLiICOoqQclaAHtUgGfKkYPprlmVbByhlzeLPpWwSoOAKaQFSbedIjgpEetTMxFbBZbSzNDDLMFzCrRBbxlwfpmMPeDLggDgswlLWNnopqQjJPoJulfuUsSbrRBeECcFIeEOZfnuUVqqQpbBrpKqsjfvVQUPvAWXuOseEeWwEIqcCQiNnSZoOIIJSpAWbnpHhQiHDgMuURYTwFhNnociICbBatWMwWeXxlayYoOGAyGgZBhXkKvdoUkhHaAuSsWwUXxpoWwOkfFKYylYuUFfZVSMmQWEmskKhpPqQHSpPWGYyWfMiJjQhlxXLCctFIpLZrHASsJzShlNnuyYrJGGggssnBaATeEtuUGHhvspIjJiRrHhPSGhHgKwOMmoWdRrvBbmeuXxULliUttWjJwTfFOOookbBfAaFlBAaIiIbBibMzZzTtMUoOlnNLuuUhkAakkKKQOEzvVNZzIyBdDWwsuTtcjJFRThKaTdDOoSstUMmMmtTGgXtmMSBeEbESLvVlszvIPpKkuLRXSsNkNxrGzAtmqGjLlCcwWYTRAPWuApEvVRqxtzyHhOJmtVkKiXNcCJJeEKkjmUqVtgGlNTeEBqQZBboOyYneNPVvfnNFYyLlSrEdzWwmtlxWvlLCqdwgBFXSUaBgqVvFfyYhJUIIzZbfSWfyJfFBbggGGOYmHSDhHwxkjGvyYcMcCdCNHhPpbFFfQqJyYxlLmMtLpvDflLQsuEePuQqUDbjUdDHYyIlUGgvmWhhMmiqQIZExYyCWwVvPpsaLXjJxaYBAEDypdXyVvYxZgiILlyaAFhelQPpjhwWHEGhHUuKGgtTzTjvHhXmMxWwwqKKkkUuQWHeBbtIxXWMKPTxaKhWwvKoOfFkZzuXVzldJDzZjZMchlLNnMmJjDbVbJjJjHLlhZDdYyiHMSsZgkCHqvVQsShUJvJtfFfgvVvDRrdEMPpmhOodXxVeEaIiASkRrevvgwyuUEeYWyuvVUhHRrhttmQKJDggBbjJSgGNnsYyIAavKOoYyYHhxKUukpfHGNrRnIigOuUsSaJiIByFjmVfYyFJUuIRyfxTikqpKpzAWRihDbBEedvgvaseZNAaoVoDWtbRMnWxXpYaXOjtTbBJyRrVjTtmiIIpVZzeIiEsBtAoZBbhonFDHEeXoOgnFxjWGAqHhKbBkKkjJqlXWNGiIZQtTcvJXxlLUJkSxYwWrRRJhHNdEMwWmIxQqqUnpPQhyFfYsSjpvVoHeEhOPpneEaarmJXtrxEjptAaTfEUHrRqQlZWEewzRtnzISYKkyAarjzeEQqmhHZrHvIsFiIfGPhnNvHmMZUxaxyaOwbYKnTqQYrRhJwWCcYDdoOhQMVvOoLLPSzXxvxBbXVrRnxZPpCsPYOqQGzMcqVzSshNxOmebXxuUMZbphGgDuUdZIizRraMCIRrPpicWwCnZdnNDHhkigGbBmtJCrhADhMoWuUweZzRrkKxXokaAZeEqQPRCckAadSsDKLlFfvrUnSsREeDddZzQqHRZLlEgaAZJZWAYyaNhiINaAWNnBbvLCTVcYykxfMnxJrQiISsqRjmXxUbCkCcVKoOkmkispPSWQwJjbbHGgIXxHhnWwXxtTCCtDdzZYyTqUMmolTtLIiXNIimesujnPpNjfgjJBGgWwNWCclaAhWwsSktTohKBKKRhEekYlmMIuZzPdwdDmtTyYRrYYybBTSsflxFfJfUaNnKGyeTbDGFikKAKMWdWwNWQYyRQjjjlwKkVTAJaLOdkKDTFpUaRkoHhJCdDcyeZCCcWONTNntnytBToOvuTDIECRmXxMXzPlLptHnvjpJjWwWwaAtrRAjgkeElIApJujfCSTqBbPpzZlnNLkRnBKaAkZzbpZzPHgtTGQoOqByaMqwWxXQsEPCssvkuUHAqIQpTtXkKRrxVvhBXzKvNjWBbwJnvVVOeEKhxKApTUSajlLcAiIahUiWWwkKVzQpPKkmMfFXHzOwFCvVqulTXwWpaAKVKkqkKzEerPpILdhUnFUdDRAaALBJaQBlLnOSsrcCkeoixHsssSSTpsJNRrcHhBrJDdjRbBkKhiIDduUzybZTSrmMCDpRXxJjaZzArxOelAawvVNFUSqQeHxXSgzZzDdadbZAJagnmGgrsSgMUuchQCaqZjplCXxRrJkoFYYUWlpiPNcUuapoONWwxlGigJjGIaAQqbNfweKEKSmMRrVPpuFZdJhEdrTEyhwiRAauUyGgYvNxMmmMXSrWhHskIUyzZycYyCYdDsSYurRiKMmUuSwuURsvHhVnVrtTIWHYrRetRDeHqQjYyDIizfAaUPpvcCskekCcaAuUjJEyYWFfFNnZznBgVvLXWwnoOPACnpIPLwuyyfaZNnrRzAOKjoOcLPJzcCwWQAcqHCmGRIBbiCrMmRcgGMNGAjfFazZzBDAZYyGshEqQsufnWLEoXkKPdcmMRstZzzBYZHbCnjSPtaAShXAaIOEKRoNbqAjbCclarpmZzMoOPuNkKxXnfNuHlLDleqQEiRZkKQvxDdXkXxPlLxtLUQcfWoZKkNnhxSsKkqZvPpwIuHbJjBDLlnNdAsSaCJAakKQqAsbBuJMmjtPakQqXYeEJjyHDQsSqdkotTkZxbHvVTQwWqtPqiQahKVSScpeSIiGgPpEemAYbhJjNjJrCcjJKQtsqQPpcFJEeUcCjzpPZBbPawWiLAalLKGJaTPJVNhTZAaxrceiXxdtUVtbThHYnNoGgwczEYjOKrAuyYPDdftjJoljJAjatvWLJJDdJqrqwnmMmMDwmkaIfPpgUudBtEYxXoOgQqWwkAuFjDsSdXIAaitTrRLFbBtGgyMWFaAUufAaDxXpUiLyKHrkkYybkfFdDRrHOKHvVLlLcOoCwnqXxQbaAMmFfmMGiIvVFJkKjfFJJUSEMnxOuQccWIiwNiDXxdhBBWqwbBIAaKhHMDdvKYeEycBuJjMEeXNmdDFXXxKZzZyYPpDdzFNnfCvtclPpVwZzmUuMnHnwzjpPzGePGgrRpzroOhDWwrNuRVBbrplLzKOqQEDtTdOVzZvmHdaHRcjTgPpGMIKcCzNcmATtHPBzrRmBEMoXnHZiIvQCmZgoyptTBbiISczXNhHZspllmqHywWjsSNnHyQqtVvtTNkyBUuWoAYwWXAXuzhVHpgvHhVUuSCciVhRzDdMZJBbMtTlLmRsSsiZNTrrRLcChueFPqsQqSLlQGgJeXRtTGgTxjMRAAvHhVNTtSszZPJHqNuQXieXxMAcqQCamDnjgGrQqyXsKjVvunNjVCqzgnwzZxOoIvViLQeEmPpOofHhkKFMQdDqQagwJXfNGxUuhdfNOjJHiIzOaTbSPpvPpPJgGjiMIZziCwbkKBWcJvuLlUecloOLmMCEYoJPOPpofFpQqjxAyPsSwNmrCcYyBUuTwdOvZzOnzESnNAVLlGVrRHIrwaZPQqkPQKItXFYsSrDdijnNYyvbBMJUujJfYfyYFbBbjAXUuxooOhFJjPXykVvVWwvhHViGGdjkwWJjwoOWqMTTHmMOXxNnoYGeTtEVVLlZzEKsSsaAkKvDHbBUuIieVnNfvVFtiKkITGFZzqQvVDeHhEvVdTjcCVjSsucKGzmhIzkKBbBJjvBWwxXdwWrRpKkPXxRrgGAaHCmzPpsSeEKkJdjaASLlsDLZvxUVHkDdjJAXXxtPGgppkmwowWqQOibiIBAjJTtaInNikKTEhXxVJtZaAkguUTteJqHhLYyEHfzZYDdyztTZrRYGzFfnNyYDPYdeLoOlTMEemtmMKuUkabyAlASYycXezVvnNHHwMVuLihuJBdpUWwSxaAgdDGuUXqFdhVPlTXjfBYyjJPpncDmCVgJKXWdKkshMBbyoNnPpjYFwsFfFBSsiiujyYmPpMHpPQUuKkGbAusxfmMvVbSsGWDGgEeQcVwXLTMSsmMWsSHFuwWULlfhwZfFDeRsLMmlYEeypnENyYzbtnLHhThHPpvQuMiIjclLCnxIvBbTMjqRrQoUucCYZTXQqQrePaUwpOoartyIiJZzgQMTaYyZgRXnKGwWgnxrSsRrlUiVmMtTZexXEpPoJxXUujOEerResTxIiuqQAkHtrfCUSXxbYuCcUinZeoaXxAqCKkKkaAcgLlsSGzPpZKHuUoOmZmOoqQLxXuUKTjJuILlDdEMRrFfVDkVgbNnoONaASSjRULHQqsZjaMmUuhNJjnRzlPifTHqvVJSsjImFwXxgwMaAecCwqevtThHVEkKIsSisvzyLPmzZMfXfEeiIkEeKFxFKuODVxHbzYagRrpPALPpMmEcOHfFhoCmwIXxzeVJjvEZiBHhbTAOQBbqHfWtyrmGHhkLlKsSdhIqVAavYynNWwPNBXxfqQFwpPaPsjSVvsiDdwUuWizoUxwaFfVpuqpPFJSQkPRPQvNFzoiYyLUCiIcGgjOjJDjJWwdIinNORrwWSGdGLlGldVvJjEFWLXclLZfmqQKksSjjJJWwlDdHhJjdTJjthHfFYyOocCdnZjJsBzfBbXmZzSsPGJiDEBsfqYaFfAyAkahGQqaIiAaXxAgHoOoOEevVsNnZzuCcUlEWwZcfFHhCLHYeErRvUuMLRyFuTAahMmWVbaABdmMDxEetzbueuxXtTEeCOCcMqlnEePDMbnSsNIvzZVjqQUIUuFpClLICkKAtKcCQqduUCxxCcOoTtXWwwhcCHvepbDdBQUCzZtoIiOQCcapPvjJSCjACHwkFxRERnAhPIBbBGgbemyikkxXvcCuDxXYOQqKkosRxMhHzDdcfFaDuUrSvVBJIjrmlGTeHwCnSqMmQCNwAahgSsWOsSWQqwzZvVYoObIkVRsbjgzDNeEnYybDnNLlvJjkKTpPtKyYgtUoOqXhfGjWsCxhHMcRgBbKnRkKrrRyMmtHStMgGRsSHIqQuJokKeTbBUAXxJBDMmKkKvLthHTBZUplWwkKLlLAaPmEeMupjXTtQqCJstTeWXxNeqrRniIvZzWwVjJvxoOLumMlLUBikyVVvnNjKkJSsSYyjMmkopFffvzWiIwkKFKpcnEYWezzZZPdHhUuDyOHKyYnZznHoOEKTTxWoFWoPtBbTDdlGqQNJVaBbAmcCBOoraIwprewWPvgYlpUkxViIvzIMdDmBxmMXbQnBbCjShHmiQJCmMfqjPpvVJFfaAQHhVuhtTCMXRpsjJXxqlCzZYKOYmHSsSbBjRupHbBoOtyWgjBbUnfxAOFQqOSolLOyzvdDVZxXwWYykKLVEelLjAqrxXqHIieElLwmqQayYLlBeuZUxXuPJjxXpjEeNsSHhcCHabBHUSWwTBFEfZVvMDcvVQqWwEwOSmMNzZKkVENnaATtxXjJkzZTtJjJjKPcneoOpGguUGNngyYTtDtTYygVvbBmOQuzFfsSKAdTtDbfjyroORxjfjJMPeXIiqQsSxOoYkKyrzhXxzAbBHVvhSsrDdIqdXjdRRcCVgtTSssNnWhHPRgNGfiNRKNdzZXKyZRsSrgiIdDMtTmdQGgJHWhrAaMmUWZnfvmvqrQNWwneDJonWkjFfUQlLmLlMaArRnfbGJtTfFGRDJMwVvCcbCjmLEfFbQFfSsqndXxDNfLKkJKuwUpNQqmMsRrSWMaXaTnKTiJRrzJqQlgGXxLuajFlScKdDkCxQeEqZAeiyhuNsSXWouUUuBbAAqHhQanCSsxXYjPzSDkvEQrRrQfECnNGKepAlDwuHYLlAavVJjSUYfXsSxbJpFWgiInWQQZNwfqQyYeEIkuFyXXhHhbpgPpQWwecTtnNIdDsVvXxCcxTLaAKkuUHhyYBbzAlPrLMNnKkyYnNMiImdhDhFfpKLliZznbAYxEeuJjUsmfYKUuwOAdDtSHhmRfFRhHXfUyyYQVvqoOLIiGglLkXdSsmMSqQsDxaALlHXxYyoOJjrnoONRQqMNnmPHcLWJZxXjZYOoMmyiXzfsMKkdleHksFTpXFfbhHLrZDHbbBjpqQYyPJjMYMjuAaqMmtTryMSDAoFhjJHsCcZzqUSLpPmFxtTXfMKkCcuQibsmlGitTcCVRrpHhLdmXIxlJbtTnNkuUWrIjJiRSiISoeEeEwwWgSsWDdpPJbWIegGucCNCcCksTtZkRruUONHJjlwOgkbupPpbSsKNrwuPpCEdnNINnaAlLiivVoKObNDdEesuFfFdDXRhHvHhhdDHkTPptRrrRYKkvmdKJjkIvVisChpMhcqQbNiNnLTkWfOogrysoUusBpPzgpPpBEelPpmMrByZzyYBCcuXxTcgNnGWOojUdDVvuVfNWwhcxyYwWGUurRTrWtiBcbyYBELUZzAGvVCcPaeEAQqSKQqiIOqNwyYHhtjJBColLrHAOIaEegqRofFOLIilWzYwXenNhASqQsDNKrRXxsSGgiIYXhQDjffeEMEZQPYfFnFYyfPpeEFfswhHgMXqQxmuUjJqQGgDDueEuWwgQJVvvVVqjPASCPiIKkwwWLPwgBNYynjJvqDdlkhTUTNnMmkAhCRiotSYypmMdDmlLyJjFYTHbfFBhguUADdPyBbYEepYyJGRrgjUDdWuYgaAGpjrRJkhHKjENsrcwWTLlzZJxXDdJmMjeNIlLOjJQEeGoYXiFfCwoDGWWwoUTWIivKkmheEhOrhzOiIDHhYBQYyXkKsfNncxXNJwBHhfweprRqQIirlLIPAyPpshKkpjlqBarRNMmeEUXeEKXxFTvLlWYYLEeljGRrKkTtAzZUMRkKrmoAyJEYyKkmMoQxEHRrhPzXkJjzZKkVsSZztNOSsUFyqQjJEgCiIcckIizeSoOIGOokDqYMTtddHdDhUBvVXLrkKPXxRrxXBkNnNKZdfXxFWwuvVvEeyMrRZsdFfCpZRrZfuUhHjlrfpPApPbryznVvNWwoFdBbNTMvgFQPpLPplqWsSYfOTRrGglLkqQprVuvlOvVYyKKkgGktdDzyvVYMRrBbTZBwpAneEKkJWwjSQzAaTHhWwEeCpSslQsNsSOhSzTSsVyYhnNHyYvYFftTxcqQUkrRCUhntXBbUunNcZBMeEeMwRKkeEFxXfKJStTqQfBmvVZEeaAkKbBsSsSWtTCcmjRTtdNeEnDlLSSsIiZOBseGgnmMfOZBtTwWbpTNnaNnrRhzwumMUcKjBJtTWSIiYbRrYSrMVvPpMiIZTIitbeSvVsEHDnUufFWgGweqQrPRrbwWgUusnNHhiFaAfoOfDdFeKFWwFfqQsSIuxaAXLWpQdRrDvsqHVACEepdBsimOBbRrUNnVKkLBbaIcylLYgwbfNyXHYyhRfXxsTSYpPyFgOocCGBbOxEnPYysZNzyYzFfZHakBfHhNWqQNnwnMmFdOeTtGQSTyhHbByYDdKYxRrZHKkpPKEAVvaiBtjAAXxECcEejOjAaalHhgNMmWwnIgGmHhJjftTbSgGPrXDdxQLsISeujJKjuLHhtTfFOobeRfFVvfjJlLEcWwKkBbVvCTHhcCNfWpZqwsEQqyYeNIqQPdyaOoAJQqyxXYgGzZPreSvqiuUvVEesNJiCZJjaySsbFfLlMmmIZzwbBWLlsShbVvBbPpfBfFQEsKkQiONnfFYjhFfQXNnxHhrsFfQBbHhqzlLnNZMTlHVvJUNhtTKkdmLlMntEUueZeHbcdDAShsCcYycCvUfFuVabPpbCOwWuPpUOBbXxmlLLFfnNjJMmOaWskJgMfFNYynQVzZYRGgrRyZzYryNgHbBhhHtsSPhIiTsSVvtbCclgtTqIJtYyvoZtAaShpeEeEweEWtrRYyBSnrwWuWlLzFXxtTcCwpNBbbVxZTFXxFffyqmUxEkKeOIcCIOuUqlLQozZCYyibhHhHytoOSUBBBKkbbhKkXjJxVvquUOpYuUVEzBbSsZevEXDLBvVWwpZzItjghHzqLKkqfWwhMmnLlDVrXiIffFcXQqwpOQQFfqqgXCcnNAaJCcubAEeaCczZGcCOiuUDdgGpsHxXzZgNMMlvVIiLZzNaZdmMtaAvHVvnrOoRzgopPrRCentdDTKurfFNnRNcvVxXOuSgxXolaARCybBlktWLzZWiQqIZMmNkfEeFHhkKSsKgCRraAlLvVbJjBoOOdtTvzZVILlhAyVhHQSsqXhDdfJjpKWwNBbTKFfkcFfjvsSTtVJCCoJMmCcrRORtEQfMulPMIHwZbBFVDdvEeIiRQnJFKkhuUkKzSsLZLlzXxyYJQqwWXzElLGUHynNqIsgjDqQlLdXFfxcSsHRYyRrnuUNrhCtTJWTmFfVmWwMvpPwWpmNnMVJlWbBhONFfKvfughHWwUCJGEePeEXQwWqikxXzhfFJjHaAQwmbBMZBbRNHSsVvzJOPwWWLdzYySapPjZzRKmoWFfnQqNzJrRfqjrRgGdDrRIbeEzgNSsYIpjJvVzRvpFfFXEHhfUrzdBGAQckKZLgGloRrzFfuUZMojJOLlmAhHEgBbUunXKkPpAWOBbXnbQEHWwyYyeaAFfjtgYfFyWQqIiWBHnNFOlCchzZAbBvxXpHcCvURruNnNbBAoOjJGOdriIRwvqQZzVHhWpSscCPeBqQRyaRgJtveEFqynNCWwcYQfDjWsmMsSuNnUIJiIPpOoHhvVVxXmFfGbVtvVuuZpAaqhpqjLkKEAaeLKusSNgGnUGeVvRGgAlLFgJIiIisSCVvvVzZVZPNnpOTtlLruUUuuPIIikUbBtbuKfFunEeNDfluULLlQqMdyTRArxDXxGlQvXxKkpdDDdXSOkKojSjtTKkDduzXsPKzZpQYgGAamZIEeRrteEaAFYyOsZWVZWeEwzvVvcCPTHYyuFLyXuyYBbUHhWwEDdyWmIiTthvBoOQQqqYytTbVMiIfVlOozcCPqQkCcKdAYlLSuUciIgpPRrDdtyeTtEUbBuYDCsxXxtThuDdUhHYySFfsaAAanwHwQRrqjJcClNnhhsScCaIiAzZGgXLkKeLGgxkpxAQqMKkxXEeYuUBbntvYyVbSLlsiIyNibpSsNXNnGRMimxsiAaccIiWVaAHqcdDjJWbwGgWFDgGcCdLlSsdFAVbBvlsKmCFfLDdiIRrTtHheCdAeEdDiOodDTtMmUlLuEQccCZqWNtRZuUzfFOodyYJjhuUGqvViINfFZbjJBeEqQPnNUOOXxolLDgqQhINnEcCcCFfPrHhwxhHXESfCgDdGcFsjJeWWSsXfMdeEdDLXLspotTZzcCbkKeEmxSljUuJawYyWlrPEepvVRJOPqTtQpolGgLYmMJpFoyKMmYykYYaftEeAhvfFwWKAakVHKnlmMLoXAtdDQBBbFfbCuMmeDdEUSsnNTDrRnMmETteFfugSYysrRLlLHhlyYIotTOxnNYyBAaXtTxXXsREAaefcaEAaxXIiiaAZRbBrCfFZzcgGldBNfFLlvyYXxYeEFFEedDXwylGSBinNCcJIiCcUqOoQlLVvVFieYTtZvrpPBbuGgSsUiInNRVQZXxzQqoLhpqQCGthHumLpcdMLvVqvVQisygGmMnxWwqeWaAqQIiwgmMOdDoyicEeMmCiSsrRkUuovenNEVEeBbihZzvmMVHIrRRbBrWfjJFfigZNbiIBJNnjflLmMgfFtYyEeTGrRyYiKizfRLGVFTMmiItMmzcEGeEnNiLSGgDZzYyRrHUuAahHJWBobbBKkBFffLDZzJStTUcCpPxXutZGgLKxnNXkGglmMzdDZzgGWfFiVvIwBnNYyeEbIlHcWfFwJXDNHvVEHRJjVeDauChHcIiUqHehArLRruQfYrSKksrRYCvFSsPpCfFcgGGgVHZeASsWwnQhHlExaAxFpqQWmMwnCaAcmMEeoWwwFHEmMerOQneENBbKkWMStJPpsJsOGZqQVveiILoOTtZzMmOosfFBbkAaKSuUMrRqQGgIrvVIoOiRyerwfFQVPpvSlDjbjJyYeFjJQwzZhHIiWYysSfKXxXMmIYyiuUSsmLiIlMlaAqxXLgGkykKEeGzxXZEeQcvVlLCiIAaRxXrJKketTXyYOJcNxXIQGueExSsLaFsmMgCBbzUbBOoTUorLVoOYyvXnrSsAaMESfsvBKOZqQRwUxNRZzrnjnoOPpSsAIiaIsSizZfxAaXmMHVIiFShZsSzvkLdEFXyGgYiNnyYIugGUXPpvoOrYfFyRFSWwCTTLmSvOoqFfQvIiNMmnWmFAawqQWHqBbAawWZOoejniIrqQIAxSIisyIiYVKkCQgGcCqcSHOVNnRIiGgzsxXtkcfTeGoOcDhHvVdVSsFyYfUfFIzZvVIivWweYzhHZpaAPSYPpyleXxEqiIxxXllLFIiiwJNxXEUYyScCsoXxLlOSsBLIsWlRrGRcCrEeiBbkzpfRrFBAXgGesTtIPjJXbBtTxxXBGEumMBbUbSUBNnvVtuHhbBUOyYYSetWPgtTbkKkLMmLlyYlRwWrPpKnDNRaAEeMtOFRrfDFQqjlDGykRrCjJchCcXAaxiDdvqCcQVHhdKkKksiISDrRdJNfjJLUuucCQqqQcdCwzZURsvViIOoSjVGgvJPyYyQaAviIGgWwHhLHLRGgDEVyiIYmAQqwqhHtrAEjnOWmgwCylEFfEevRdGjJKnNfFkhHvVfFgFwHhHXfFCcnzZNYKkqGmMSLKklNnWwsJqQjUkCRrRIiFNbtTnNFfvIBrGYycHhooOmPSspffwCbIirRBciMQtTqXZzSHoORCbSsVvyYyYBqQvVNTtAiIyYaRriICDdkwmlbBLrqkZzxXiuGgUIKQzEeCMEeOoEeulzZgGJjJjfFkgtKSydTmXxlLdsSdxXFnAuUmDCPHhpgGfiIikfFKiIoJjwWalwbBYyWmpSssuxylCGbzdhHXxBinyYcWwpLlCBbciIViLWwlLWeEwpPCQRrjJwWTtCdcCGzSBSWtTjJzjJZonNOIitjJTWlVtTrWaAJjwRknuUiINeMjCHGtbUwQvSsalRgLHQmqQFCbffFFrbBNnMrQLlvQqVxVWXeExdaAlcBfFaYwWFZOoRGgMlBbriiKjTtJHvVhkzvVIOXhmvViIwNIinrRWMgGoRYyvzHdsShHpinAQyYmvzPpZveErRlpPiytSsTYLMmoiIOIyGgzZVbxGkKSVvMLlvbGCckKBFfrRuUOoTdDvVNrskLpPlUroFfORXeEQfmpPCNwJdDYywmMFoOHSpcfCcpLfFJtTLmMljRmMJJLvWDvUuTLIbBNSoOAaGQhoObBseEOZzypPrSsRYHyYYyhvVMYoOGpjJkgpDdvVoOcOoCPjTtJeNnAWWwwsIevVEiIhXKkSsgGxEDRrzZXWwLlxoORpYMRaBbuaAlLUAJjKkCcfdfFOWwfdHLeOnNoOqOobNAanfFSrpUCEwPpWhhHvSAbGgwWRgkwWfFAaVveETtZzSsfFKzZWyPpQqtTeEuKuUkOoUunGgrSthdDvVHXWwxPwWpHhyHhEeqdvcCVIUiFOoPWwhpPzwEeWNjILlzkKXxWtuUezmEeqQCqQcDdEnTbsCDduUcxXMYoeEotTOnlCcLDCcdDrcgOoRrGgGjCFfyYqTtkWwRrKYyQFfqtouUOYXxyeYlTtqQBbdBbiIJzZjJhHPrNQomMHiIhPVvZcpPAaCbByYQqFfYlLyGgzsSQqWwXdggNOqJblfUuSsIizkKBbjTCQByFmznNLyYVvlfNzNnQqZJjpPxXaxtTsStzWSRrPsuXBKkmqxEeytTJjCcYJmpPGgWyNnqQaIWwpAasSUuBpxXRmMAFzLlZlLeAaJKPpkHImMjPeEzZlLaAxXpAPnNptTapPJLluGgwWYyUxnoBbeRhHrKmLtTmEeZpPRKyXxQyNnYqjPpDrDMAamGgGfFgOzZoLlLlfFekKlsSxfFXjhHzEnwWBbVvAmMQqeECpPlLYzgGDFnNIiBGgabBiIAyYdPpBbVCcSYUMmhYyiLLlSqQTIhDdOoeEJjmXIipynNYPxnNwSylWeOoiQZzLlXKkbCcJjEeBpPhHMVbcMmCBxXvJYeEQFzZCDdpTNJsuUdjJNtbBfDdEehHGuUgyuhHlLUlsShHiILxLloOVGgMQHtPpeEekKbBEBblzWwwDdWroOFhBYmTPssSSiAaoOBmOwZrDLldCnNlLiIPdxtTXDIirZMYyRrmQVMsMmQEeEiNFpefjxXoFNngVrRHhxXbgIMXHhxAamNoZzycKkdDCFfAaqSwAnMmgNrpiyeEYIPAaxpDdzZRQqrTTttyBbaEeyRrYiIMmSsAIiOTRrQbBqGEeXvYyVmwWMWssKkGgSStTkZzlAnjnPeEAhiIaUuAlLdDbeZFNntTFfQtTNgGHCcsSZyHhiWDiIhHAaAaRqGghHVkKoVIkeEHhLlKpKFLlpipaMaPpoTtuUOZHhzTmGgKFCoOcwWNmGgvKsuUkAAaOFfcCofvDkKEleNnyXrEeCSscdDRoCNmMgOoGxcnNXxCPKkJbBlXrEeaAHjJWRthHTKiIKkATBbusSRrlLxXEdLbDdRjoOJLpfFguUOoaKnNqMaAQqahbBfFnNlLeaAxXOYjCcJHvUTbBOwkKJNcYxMmOyYiOoZzmiEGgeQqFGrRvVeyhHXxYrcnAUuVUWwuFnmMNtTfydqQDJUujKkrRIgSAoOJOoFdBbcQUHUuNSsOQZwWzawWAlJjHhWwPppPTtLGgwWDsLNncIDdijEdXasfQqIUnNbcwWEeCtbZlLzLlLlUxtnAaqQjJNwooSrRQsYqQUuUAarRxXucCZkKzyRfRrjkxZzXExuUrSUqJjTtYyXPptTZzVEybBYeeEveNnUDPJvvbBVtyYfFwZzhHpPWwTBkKHrRsfFuUIrRRWNgAUuaGhPgPpmOAaoGVUrRzWOowiIJjQNyLlpppqmMwWHvVhQVlLqXGZLwWaGeOzsSZoqQtTbBSBfIUembgGBIAaiTtJuUlZziILlAvljJtmclWqNnQGVEeXxvzZfFlLZzvpPdDCnZzCchCPpqXwzZWojZleaANnJKksFpMoIlLRPpDirRMmbmjJoOjoVvgGebBEYyoOjQqjJjIiZnNlLNliShHnsSSsqQGgSsrYyVmkKLlMTtzZvVsSiIHhoovVqQOOUDdHBBDdaAbbErRespfcCBhrRHKxXveEeEwWVJQgGqDdmTtDdMfFtTokKOsTCghcCtTyMJjmYnNcCDjJedDIGyYgriwNMVvSsLBMmbrVjofFMVNnvclLOoHhXxKedWlLiIwxTkKtXiISspmwWMPpCcxZzjJpzoqQOIyYXxUbeEYEhDdHjJzLlOobvVRrBKmNMmnfFuURMmrggGXxdDqFfUDKkYyeovVtQqHshAaKHTthkyQZzqWwYrYUUuMmwfFWuyYmTtwEQeEeWgGgpPGtTpPAawEqHFrGgRfTTDdmMVvtlgcCGKkLTylLIiNnkKjCvVcWwqjJmsSMWwmPsmvVXDdoOkjJjIihHJtsSAaTKoOkqQXRgGIXoLlemMEygGzBbZYMMQvViIouUuUldDjuMmUJPnNHhrCccEQQuUZzJJSWaAwsHhrsbkmoOMIixPCfFtTcXxxWwAaBVCBvnNiqwWfFTtXxQgBmMtTbTKtTBsagfFZzGwWBbYkKCjJOozZxXkVvLAagGyxXpmixKZzSqYCVvneEHCcYyOokiqQIYfEeFefAVviWJjwXTPptOEnlLNrROobBczZsSCtTeeeEoOhVvHDbBdQqTaxXDdICKlcCaActFWlLFInNHhUCcJjuXFsvVSSbBCsNMxFQkKtFcCZGgmXuURiIblHCQqoAsSnNaaAGgkBbKNcNnLpkKPuPgGqYyQIivnNVEqQebBCQOZzofFoCcZNEtTNnBXsSSpwWXgMOoWvVQqxXQyYqflSsLFfFfGgjJTtigGWwyYJZzGSsBbxXFIQqoOhgGnbQhQqqQHqBnfPDoAaOYcCuoOWwValxMdDdSZnNxIirMKzZKklLSsOolXlELFtgtAFewWfFxtTGYyXxioeTtZuUzjeooBHOoWXFqQCnNcBqcCQZoQiIlDGoEzAagUnoOEPMmdDsSJjzZpAGgBbmMuQNnqHfQqFQqjNBRrbtTTtLlJjKkXPoAasSXSnNAVHhvJjQpPwWfFEevVqaeoMmdtTbRDdHhCcGDdgeEDdrRXiHTkKtMmoOWwAaFfdFfDvaAsoMmzZWwIixXtsSTGeyYnNnNgGlLwWEUugSDuUDxhHXgGTCfFIUEGgiINHhncyGgwWkKYKkSxwpiIZCMmPpAaZzWhHhBZUuhdGaAguZzHhUGgDBbZbvOosSAlKzZZfELqQuUqkeENncifFRSsqQMmrlLYRmMtTDdolLeEYtThBbJjHGSiZqQEKPpdDkIKxpxwqhHQhYyWwIiGkxmMpPjJXNnKKkkqQKCcgKkCuoLvTeEnNCcNLlPpYygGwnUvXxVHjYyQqAaNMmDHzMmZMmhISsZzTbBEezZtXeEHhxvxoOXqtTQMdwWDGgrRqQUuVvjRfWwYeKkElLyYCcnNueEMyPmuYyUpczVvzxdDXZwWogGgGSbBXuUuUgLlHhmMKktNhwWHIXxjJiItTBpIVDptTmyYlLSsMCcDiHDdhIfSsUuvVCcsfFSzArRaZHjJmMhkKFhHPpyTtYdCpOoiaGgAfFZCcQGOoCczqQWwZsxFfOoeEqYFgNnfxdAaDdfmMBKkVvbFkIirRGgDdsVjJvcLJSsgGYjuUasSZyYEMmMJlLjGgSVvNnstzZTyYmrRlTtAjsSlLdmsSMTtDZzJSscCpJjtkKTYAayPdSTKlLfFsRhunNUHdPpGgDfOoswyYWTFfTtCTtcIyZzYipmMnNUqfFCAaDdzQqyYXBbNnxeERUuCcrUeEPpxdDXgGSAapPSuAaUsDdsWwYyuZHOqVbBrREerKkdDeEPphxXHBbCcYyvVqQOKbBkJjoupbBPPxCvLyYliIVECcepXxPsSWbBMcCcOopIiWXiIxwLlpxXPQxRDdvjMfFriIDdeECcjCrOoQOxzZXZzoVZznNoOvsSPpLlmukKUaARrXwCodcyYCWAacCYRrMmZzmkdDasSAcYydDCuUKNnkKDpPhHdMmgGACcaMiImwYDdUdTtDPfFAaLVvgGlqQqZzTtwuUNnNyTUuOCMgGmCzFGoWweEOyYojJOUumDfsScGwWWwjJmbbBfWlLZkKzbBlVvLVvrVvRlTvmcasXxSUzZzqIjJiUPQLdMMdDmRrRJhHhHBbXOUuohvVHJjSjJytLlTxskKYybIfrRmMFiPDrbBCrVvVvRKkcMvVOzLlqQZomRXnRrvVVvlwxXWFfKgGTmvxXVkKQDMlLqQqqQUuczzuxhHXlLZSsmxmaETeqzZQESaNnAcCKkRrlJjrIAailXxLwuESlLhHTtHDBqumMUceECBuZOozUsSvRrHRPKwkKnNKWwSPpOoPpuxIUuGZqQzDdpPQqrpPRJDuLlCAauUcLlXFSAaUJjZzCswWBzZcCbWwVvSBYGIOyYvVoYyxXAwWtTfPpMfFEIWwiUuotnNBbHhTtGgTpPdDODdGgbVQIPeUuiITtEpiIBbfqHhQFHhNnslLSWwLjKkyHCrEecqDnNyXxYYyoCceEqYDyayIisSoOtDBbwWoOSpPYmAaGeEgMiFfcCRrITXCcxvVSbORFJXtTxIieEjYOTcCILliugGalpCcPJqLAaYZzpYFwWeEtiIoJVvjmMoOzZoOoBbLoOyyYYdDldAaYyRrZUuqxXGgFBvnNBSsDsHEeLPplzQXxdDqpJkSsKzSwtTWWwFfsYyoxXsOsXxdiIDxXzZWrgiIGQPpyYqQqQCJjcQqBQqbqNnUumMJjtsjJzZkKYyOoSOotTvVDEfFEeLoOVvJieAavzZfHhSssSOppPPGgLlSuUilFffFZpPsQqSxHhNnXMyCcEeYanNAlLEdaGgGoONnFfgGliIAnNaLyYDIiAaIyYQUuEbBeGTPptdDrwWRHhXxxTtXubThTwWcCBKkbgGNntgGPpVvzQqiIDdPiIpTtSQqIiWwOxSsXogoOGofFIiOzyCfpMbBmUiuaAVVGgVaAxxXXhHhjAtTTAaTWcCwyjbBJNDdQqenCcPpyCXWAamMAUoOfQcCwWqFuvwlyYkKLWVRrdfFhHBbviIgELlLlTtSbqGxXgQBnWwohwYyOowhHWsSvVsSahDdOoDwGgrMxXmLlSsReEQqSsJGgQoOeQqOtToGSsgnNyHhkuesJNvyYzpIiPmdDMswdDwrtMmTRVvxxaZzPpfBZTtEehBbHKkzAmuUMFfFuUvVfahcCEeHPPppYymMbGGgNXyYyLlSVvuQqUsoOBbUugDdIymMAIiaAPpaBUubTPVWTNnkOsvVSbBMmseESJQqtTCcjkaANXFzZfKkeExKktTXxXaAItTsSxXVMVzZmyZzYrRxAhHgGqhHrRdRKjJkrzLlWEodWyYEvVWlLaEedFfQyLlYqDAORroMMNkKnwKkCcyHNTtnhLkKdDvMmKTJCcjQVvmtTlMHIihvZUubByYAwWWwaeUuNxiYyeyTDdtuwWshQJjqfFnSsHhPYynRjVvQKkUuyLtTlrCiaQrFekLlctTFuHSsgGvyYkKVPpjwWBlWEQqBbseELiVAaiIDdYdRoOrzZDmMkKzuUsSSsoOUukLOqQvVPXxkgGKJjlOoLACFcCTKXxktQSsTXxtqjJVFfCcmLWwnudZzDUNdmOoMScVvCEesDTtemMAawWpPNnrRaQqACIiAaJqQjqwfFiIvgGyvvVwbBNgmnKSsgpPpPmbgGBKsTJhchDdHuNoOsSnUqTphHRrQrRqvTZztWwRjJZzPpruUGxShHldDLGgsTmcoOxXwIKkibBsLlnJjNMsFZpPsZzDlLdfWwdoODhHFnNfkXxKKpPtGeWwjeEtTEeiIRrkKJEUCOSIeEWwiEeFgGKkFuNFfKLlMmXkOoWhHExXhHpPfVvWwFelGkGgUuIixehHKmMOWweifFIDUudEwTLAaBbcCNnlDdaASfFUWwuoOsYKkyrkwAaRrbqMxXoOJBbjmElLevpjJaAvVXNnosSOqNuUnQsgUAMmsxXQOoKetUuTZpPZxXzfYesrRLpPJjlSEmMejqQJjJDdjMTAajuQvVqwWmTtyYMsSgcCGUyYuEergYaxXFflAGgasSKgGkQqdDLGglQlLqtlJfFfdYyDJcCWwjTdDtFjOySsCEqtTQeFfeEKkDvVftnNtAuxXUaTJjQAuUoOTFjJdLlNDdnDRrZzImMsSZnTPptsTEebaLldDQqoFmErBbQqbfvVFBZsStiKkKqshkKEegkKrCmZzMcTrRtQqmKDdcFfCaAzZkKbrySsEKkeXPpPqTxXYydmvADdJjFfJjYyctiIVNnBbNnMmhHnmMKdDkMjnUBbuNJRrJjmNnNvPpOoOoVRrEVsStBbXRabiIfVvFhZNnzxRyYJjVvGgNnOpRtTnZVvoFfUDduoOkDyYDddKVkBqQJJjjzZOFfpPobDdGsPpjLlkKUuJhHfFBJjMmbXBbXxGgzZpVvVMTAXxahNNnnfYyFvvzoAatQqTOqRrjQVvfFbBsSHhTyVvYmQqLlMlLpILlXuUsSDmoYWHhOOMmooiDdIwWkwWwWKGghHwhvVkKvtTVbBZZzTtMNnOMmbhWwHNneEtTsSQqcTtSKksVTtTdDwWRdDrlLzZtxzmUwWIiuKPNnpENzZHZzxnhkXxZGgUuuKVbBmMjJRtxXQSsqkJjkqQKeEsqQBbBhHHhHqNmMqoOpCpPcPAMmyYsZsKbBkSpmGgMpTifFvpPYyVpPIXPpxuljdDJTBMmeEdWtYyTLvTxXtVHTtvVOMmoEozIiOorRgnNKWgRrOorRZzkqQeIuUdbfFfJjFveEZvqQzZVdqQDqLnvRLloOrVKkvOzZpvVMYpPuUyseEPpvVSeJzgzmKnTyYtFfAabrRLpPrRalQqLVGnvVNgvMtTkKWRPpxXWwMORXdwWeWwJjlbBSsyoHkKgNnoOnNDdHhGFfWwKklLhOezZxXZgKkGEAawWezETLJnNPpjAalLuJjQqXxUMCBbtHhrRrRyQqQJjuUnNZQaAGCCcYsETkKtpPwWSbFfsEoOeZKkOozQYyJjVRryMPplLAaSspzNnZPqQWPpBbGgworROHzNiIxXSGCcgXIiCgIiGlLTgiccCkKlHJBulxUuLdDdDfFVvcCGgEkSsdszZSmMsSuURQqrDJjBKkVvFBpPjhHcSwWsMTWwtBAzAfFaHRrhtYyhOxXtQuUkgGYysSkGJjgqQMoKnIhHdRrpPDCLlMAaBaARrTtyYbmPsScyYTtyYWCkDdLlgGAhHanNFqOoTIitQKkmlFfzQZRrcCuUVFgaAGfveUueUTXGNSsngvvVdDiJRrlLenNMmEeERIiNWwUmMuEeSLdDfFlqQLFjJfBLfTYGmMgycCtpPUuMmsESlLsxXeSfUuFICgGEzYRrbiIBHCeDdsAaWwSxXlLlLsIGginNSUqQDWwYBblNHcjJcCoOsxXSuUTCctMmHURrIImMRCcrNnAaiJdDjAawWUuRrxgGXKmMkAaATtahHFfBbiIfXxXAaxQqQqcCoKeEHVvhexXzjhBbHCcAaTEeADddDadDuWwPpOIifUOxeEXDTZLAeGgVhHLavVJjtTlLADdlBdSsUeiIMmfJBbjQqNecCEVeEvBbcCCbBtTtTchXxTvVIOoEeiugGFfQqUYkKLebBDdEeesSvAazZFfzZTOotpEepPpPcVxLlQQpPZqQJnNRrjlLzDdhHVvFlQqQqQQgGafRrLuWyYwEejloOEelLeECDBbtTdvVqOohyYjWweEJsSBbTTtAYyViVvIyYYyRrOoLlvDnOoWpIizcCZPUaUQbiIByYquZzyHhYWXgaAZNVvnrRNPrRULltTQqpPxXUxXXxsnNbepPEsSKWtFffFVvTgqQFfGRYhHHwWhyYyrxXzCEecSlCcFJgGgGjKtEesWwubBDdUSNnKyYuFgDofFORrdGUuLYUDdHDdtTHhBaAhHcCaWwLlaAhEezLrRlOUOoHvVxXfKkLloCXxNnTtnNkKnYEsSeBbgOoLlHCGPpnwWzJvXFfxrEeJjxXcJIijCcQqMmGgCEhmgGKkSsMBbwWRjZztTrRJkKlLGgZGgzLbBlxXcCawcCxXKkJjtrRyYuUEtTeQqTzZzbcCBZAEWDLlEedwFFuUfQqrZlFfpoKkOFfqQqUBPpbTtIikiqQqQHGgHQtWwTrRVyYvyYqSsSsVFfvEhEeHkiIKeYyEVMGuUgmTtorRJcCEiIOaZzOoKkCfFbBGCjJcKkgSskKzZDdTtcHhnNuCqQcuUoOIipuUtTtTLlmkKMAPTBbNnZzTcECcjJtTexXEQqabBAXejtTJIiDhHwhHeEsBxLlVvXOHeEsQbBCcqiIOVvodxXaAuUDdAwLlWFfouZSsDBbdeElLvsbBVvKkrbBSEelkPpKLIcCeEKkZuUzLlEZzesPpSqDdIiaAQiFqHgGwPpCjJJOojcAaZsSmMzKeEkDFrRBbyGlpPLWiIwulLijVaACcQNnqNntUuqQRroOtbBMmwRTtKkrCFfclQqLJjWCcKcCNNnBbaAjaAJndDYyWnNwHhjJIiQKIBbihIspPvVpmMPfiInNmDpPpPdlLHjJyvUFaFfAsSfOoxXJjyYwWvhHUMmusPpSfFVQqtwRVwWvrLyYlSKkTtZzYrlRrvVeEKVvkAaDdRrkQqKqQaNnpWwyYPAaGgfkxXyYKFlLaUuKkucPAAQqaqfFGgeEQBLLliIvXafFAnNpPoOpzWwZVvHaAhEuUeqQPaFxXXxJuUKZOozzZNnkfFbBbnNBXxCmPuIhHiVszZSEfFCxTtXBbTtfXxuvnNVUxXuofFOyeEvVACceCcEvVUudMOoAamtuJjUqmMwWQTRrAaAaoOWwpPkKtcClLVrUuhHRxcCKOobBkToXqhMmHLgGvVGrCnzZNcvyYrRHhGCmMcgjJioOIlLrxXWTtXRrhHxhJjVvEoOiIKFfYdDNnQqywaAoZzOWjJiTkcCKvVIitdDXzbBZIiuftTFNnGgJsSmwAaurFfKktTvfjtTJoOFcaACVgsgeEGSLldRrBYJjylLQqbDoObBvRrtTwAaWwWRrDdaeyYpPmMlLSsriIGMmKktKkKkMyYWqQiIYykaAHMmsSGgLlCHKaAIkKcAaCikZzaAOoeNngTtSsUuBDDdpPWwaxXpPwEeWNTtneENnNPOooOpnVfmJNnyYjMFJjwWeGgGgELldiImMDMmeETtsSjlLkYybxyYJjXfFdzHTjQqaCmMIYytTibBpPAyYgGUNGgnBbjJurReJFfjETtvVzZVbSsBoMmJsSjOwWaAUogHhjJGpPhHnvQqntTDdEebBNHhaALgmMlLoOgVvGKfFkGOPjJKkpbZzmMnrRNyrtTyLlYEeEHhQqFZExXXMRrOoknNsSnAaIiZbJbjJBaKkuTtUNnRAaLExXwWirRQqIeEetlaAeiICxXnNvMAlLagZzEelJLlXzkKZtKkFfyYTfVvFeMtTBZQqzKkXxOoBGgbjJHhHOohKkVIivIyfFYjKvGgLlVRrvkQqKhXvVAacwWCSszhHZGgHnNhujJsSnNbBbBKkvVnNiIromOoMdDsFfSZHhJHRrGghaAxXWgGJmMmHhhHXKsSLlOZJLAalnNzZSsOojQqgVrRWNqQnmMwJjbBjSKRruUDdkksSKWSswYGgUUuuyxXCfFcmMZzOGgDQOowWZUuzjJJBbjyYqQTtjJhHSJjYysDxtTXdDFfItTiNbBAOofFaBbVVvAYMmNnyaaAlEeHhLUbBNnmMBYyRrRrKxBbdAaDRrXSsJjzZkAPpxHhXnoONaUXwWxYlLmMRYjJxXfrSpJSsjJjPphHPnNiIHhsqQFfiIvVBbRcCQldkKDLRrpPWfFwxXrRXxJrIiHPpSshRHKAasoVTtLlcCmGgmMMrDdRvdDOSgoORtTbBomMLMKoORbBnbUuUuBXYrRyrRZqEDdQqTOoRrtlnNGtTZzeEgeRcCJjkKanNGgAzZRrSuUtTrRzxXGaZzMmAgSlVvJjKvVklLbBThMmmMnxXdDlqQDdLBOogGgGKkpwVvxXRvVroWFSsEMDlXxLfezZmMxXEsSFKkfFdmeEeEvVesSrRCkKlLTtrRrRcfgGeLMmpWQqdCcDwRkKrpNHhmMnNnUujJbBNaACEebBIfFisSBYwLlaAUEezqcCgWwGQsvVcJfAYyaYyVbBdDJzZlLeFfmQqMUuIyJyYhszZSHaAjiIEenixRrXmMINxtTXzQqZDdWwsSfzZGJwLEeZzjSsKkJlWjPSVvspPlpPoOLRrXRrcCZzKLhHlhGgWwVvuUQDdTtTtqiIHJjcjJYQqOoyPpAJEenXERzZZzTtRRrmMoTtjJSNnsvViIZzHhyYxXeEKPoOhHpkuUueETtlLUAtrRrRBbTPuUphHIejkKmMJtTEPHyYVvGgWwbBkKnNlWwUuLYynKpTHhGgXxZzNntvVGdDgNkKnlLJjFZfFzHhfYyREerOoPVvoeEPpuUOPAnNMmLuUlwXxsSHnmMorRlLODNnGgQLFfFfliTEetVBrRbBVxXvKefnNiKvvVzTthHEeOoZYyiIZzVaATDkKdMmWzhHZwtaAOuUoWwLlklLVvbBHjJimnnNQqNMIiIqoOHhBRreEzFfUuZDxXdooOOrSsRbaYEeyBCFfcbfvVFwLDTtdNfKZJjhHYyBGgbCcTYhNhHPXxwWpncCyYoJnNIijOffsSFFOaAKXxLlkogGenBYyAffFFEeaguUzZGQqbrRPpSOsgiWwIhSrkKRSssfzZFIaRNnkxXEepPvBVvUzZunNxXwWzRriIIpPrRiWTtuiRrIqyYaAcRjJrCcCQlLXgiILlGIidqMNnFfuUmQgGKkZzKkDTtASUiIuxXeLlESeEsHhtTguUGIirRnNSsfFPpGghHioIDdiWCclfFLorRNSslLqQVFrbmMBVvaBvVHjJqQNwbBwDdWGBbgpCRrHhqQrXOfFoiIxgGGALlagSxXXxseepnNQygGRwWrYnNOoUuMmquUAabbBBCzjJZcNEaAoOenhOdDUGpPKnqQNVnAhHaNvCcBHhzZbkBbcCvERrZzyeyYIiEYNnewWnNSJEejjvXxVJjJVDdBbbBBbvbBFfiILlrXxoxleEwWRrLGgKkAaelLQqECcuUXgCMvTTviIVlQqWwtTGgSsCcKkqoiIOQTtAaPaAuUEepHfFhXxbBLKkJjSzZqQdDbtcEelZIimMzIiAaPpRrcTtFxpPXSsWwrgoSsOwWuAarkKRzZFfDdvyYpPYyVUGAaRQAagGkbOolLBKkWwnBbMmbBSssWEeOAaomXOoxCcyYtTyYRmRrMrMwWHhKtTkwvvdhHuUDmMxXOnNooGgOVVFfwWOoYyrmMdDRLltynNlLwWKkUuAaVCcvjJVWfeEAaSUusvVFYYoAwaqQARfIiooOxXKEekOFuUAdDRMmraKkYzZypPYyFuUFjJxwlJjLZzWnNXcCxcCnSsNawWAzYyZXSsIoOAaRruXxsfFwWDdSfoOFUjJLzZiEeTJjttTIvVBbqQcCRJjroxXHaOoALleUuEhOUNnMvVqFYyfQmEnNCcXxwAaWkKZKlIiIlLaAmMCcJGgFfFMmfGgyYWwuUIilLeHhMmPIisSiIhHzZqkAaKQaAvVjNnncCtTNJRrcCYsSWwyuWnaAoOTtNxXwPNnplLYHlLCJjjfHhFiIJYdxXPpibBxXIZMFnNfmzDrRoUuOyoOHhMfFFfIiMmmCzZameEZzMmjJMuUrRIiaAAoOFgnNBRrUYeEBbyepPcCEubBnwWuUEeuOoMFTtfmrGgsCcSRFfARranoONmhmrRMfFNnHvVxXEeVnfFLlHhNeERrvqgGMRrmQaAaGgAHUudYyAmMrRaZzvhHVYyWCcCcoOVbBvFQqfwcjJCDHhuUtTMRrdDmtrHhvVRBkKbyYbBqQqQDDdaATtIiAbvVIWaAfFFfwjJXxXxiuUNrEeRJZzzZjoOSsqQFlLfjJpPnNJNoAaOnpPtLlAtTvVKVvkazXxZMmwWlLhlLIiMmBbsDpPAafdDEAMOomZzaJjRryYehHvOgGzDdXxAaZgGpqEeQPoEhHefFLlSsjNCcfFJjoOuUnUnNajJAaAymMYIilsSyYTtLCkrRKcSHhShHvVDgYBoXAMdDDdmcCCnhPpGgHNcahTtAatuUuVToOtvHhUyNnmDdaAPpjLkKlRrEeJJjmxkcCpPKtTETthxXtTHhnNmMHGiICciNdkKdDDWwnTbyYNHhfFuMNnmpPzmTtMZpcCLOolEOuUCcouUeWwPUnkKdLlcCHiIhBbFfDWvVnNwOcoDdOCoLjJsSQUuCNrTyYiItzZwWQqPvVEeJLKklLlFRrfFfjJmMaAIizZsUQqRSsrpPSIisLCcuDdiIcEeJjCUuKzYXGgtQNnqPpXZzqMmLlgGUdpPOoSsOoDunNnNZPxwWXpzFfIKkrRaAxXgWvVwUudDaAfFbBZztTlXuUxFfLWRcCrEVveIiwyvVkKMmhHkKYbBNnnqQNqQeElLwQqhHOlLoWhHbIioOBRrwWewWtotxXtTTfzZFOsSTDzZNndDdDdkKXxjTtJJjAyYCcaXxtKkTQXIdvVdZuUzSsDAayIiYYysSnyYRTpPfFtrkKNrJOoyYRgGMmuUrnXxlLSsNPyYUqLxXlQaAPpMOomuILlipzXZzxlLVvFfzZMeEJjwlQRrqlUTtUufFuVkAaaAEHhenNWkeEKsSTtpPrRgGwATyNeEnRxXrAbKkBaCcqQYmMBbHCUuENnemLlTGfFgtOsmdDAadDVvqQvVVmMvGUuguUpHGghZiIzhHqQPSsTJjGzZgsSGLlPNnqQKKkkCcEeJjpuToOTttUOovVoUuAaTLlYyeEtjAaJfpPxXFAamMhFQqKmMkBbCFfcJsSTqaMmAQtjIioVvOMmfFfyhqQOoHeNnEYzZJjXTjhHJEetxPphHtTTtXJoOjGGggWwuNnUuQqnUuNYyLqdDqTAEeuUakKWMVvZzmwjRMiImrJjxXLllfBKkbeEflKkLVvmKkcCYyZzWwnNjJMFilLbhHlLDhHGWDjJjVvJdSLOolGgyYsGgUBbMIiKXxkYyYmMyBqQGgbcCmsDelDdLYrhHsSReEKkPppPFfMmzZdeEzVvqQcCOoSsUxZzeEEKkQqYyxXeXujJFLbBxXlzZqiCmMNncpFfPIRtTrjJWlLvetTEnCcNRrVeElZzLwqQYypPvVFfpPtThLlMmNaSsAnyYLlHXxjJXVCZzcgGvxPpLQOoqdDjEFirRIfHhBbuUeqQJvVSaAaAslFfjHhJrPpJwqQBbWjoORtIiTiITWIiwtLlcCEedDjUuWIiSRrGvVjJgsBwFfWaAbJsScCRrjfFrRGHhxPvUukIwWiKVpAavYysSPdDeEPpKkpreEGrlDdLRtzZqQnNTLyYYystdDTSOGgojJmMEwWelAACcaagRvVdwWeEqQDFfsSdDIirWUuKKkoOBbKkzZkKkmMxFyYfhHGXxgXGgRcDdRgHZzmMVvpKkPhxXHhGrCIifhHbQBbrRKkqrAaRbiIUTMmFftaAIiuBcCjaArRrsJgsSGPpjSkKdcCjJDfeEWwFmMdwWkWwkKRrKDaOkKojJASsqQXxdDqQEerRszZSRqQOoMKzZkzZpPBmMbmpPbfPgGpsSxXiIIiGWLlkokQqKOKoONeEnuBbjJUuUNnrlLBcCycClLmMYZzRrbsSYCcJLlrRjyBbTReEBbxXzaAZaAnNQqnNGgrgCcGtLeElrgGwJUujWRYlLtMmTyEhHefJjNnEeLlahcCHACKkcaAOorRFvVmMFrmIiLlMeEzZrRRgfFBbuUSsGRrnNfYykPpomMOIiKYbBhHzZyMmUUIiOPpHhorRupPdDuzZLlippPPxXTtLGghHlyYZziJjJjIlLqQZMJjaAmxVvrRtTGgUupPVHhAaUuiPoFNnxXfZzPcCpPPprRZzzZxXpMxXmmQEOoWwmhHEeUunUlLuRrNPHhpRrMBbiiIIeOKkoCbBcUEeugGQAaqwCcoMmzZwWGgPpjOEeoBbKkrRDdOoZzJxRnGgNqEegGtTXxjJstTOoSvVgvVAaGSsCcESslLOoEeNMIimNntTmMxXyYiInVveTkOoqHhQbBKEeCTgGtHyYJjNnzIiZhcVsSfFYykKOHhoRreEjsSXAasSYyJdDrIiRWwVCcvhVvizZrRkKAaeEhHWwBUTtuiaBnNbSsAMHlLmMrpPRhmGgwMmWIvVbIRkKDaAYydriSsaAsiIsSxXSHhYyrRuNnmMUdDrRzysSdDkBbKqSsQYXxOfFvVGgxOoqeEQXZVvOyYozjpeECczPpzZaAtTkKfFvVeEYyQqcCGgcCyMmYiIZPCcEZzyYoOoOotTYyQtTqOLllLstgrRPpaEwoOWbBeVvAGTMmJjYyIGgyfFYfeEFrrRfFRBbQqrRhmMxJjLCclxQqcCXXxrRZDdzheEHYyXTaXxAhrRHuUhEeFfHkKVveExXxXwWTthWwWwUuHtQqWdDwNnfMmFNnobBJjmIhHkKXxxXXxiBbpPIDMmcCpPvVsSgGdgGhSsIDdkYyKiEenNcCoOGIicCDdgHZCcDdKVvkzHhkDLldKWYywSJjsSxXYyyYUuVvJiIWwKSIiskkKHsSDdObBBbBboNDdnzZBbgGOKZzkHhVvodBZoFfOzbdYIiyBbmMmhHMGgCcdDbBetTpPEEeWlLJjyYwiIJjqQKzZxPpXkRDdBbrdDyYKTHYyhGgGgthHqQtTsSkqQqeEiIBbXxQKGgzZVvgGkKXxkeEoOAaNKfajJAsSFkZzIyYisArRUuaTtmMSUuenNRaOoAWwfFrTaAtMZxXzmEHhCiIpPWwLlrRcVvxXRSsdDraAvVGWwrRgTtnayYvWwVeEAEepPBbfeEFUujJwaAWOiIoMsSZzwWKVviIkIimauUNiYyInAvxXgGVvigqQGIHxXhVaAvwWFfVaAiIrRCzZcrUuOuUHwWhopPLPNnSspHhVvgGlcGgNnHhPpzZCiIhgYyyYyYSsGeEBfFiIbkKMmEevQqZzlLTnNttTVHRSsAaRrzZQqWcCwgkKTtaAltTLdDUuGbEeBbkKMjJjmRrMjJaAfFBbBbJxXFfAnNaIiIaAvViVkLlKiIvwWwWFfaeEGgxPpXiKkIAEeagGABbuUYyrRQQquUEpPeWwIigGqRrZzAOogSsGaPpnNFZzUumMfFrRIizZfXmMxXxeWwTuUhNmMnmHhMHSssoOStPoOpepPNnEZzEtTjgGzWfFwZvVfFxXJTtMmMHhtTeEmhtTBbHhcVvCmMmMUuKkxdzZDXPpePpYyEGfNnlIiLFfJjKkpoONfmMFLlnEexRruUPpXUuCcPFfJjzCciIZRravVApZzaRrRnNrAVvwWbBZzWwtTkKNnyYlrBbRqicCFfAaURruIHhTgFfGtKEeKkCDnNdcxXiIkQnNFfkKrRpPqQXxTtDVvVmMvKLlIgYyGikDtThHduPpUGgnNbBCEDkKSKnNksdZzeCcEaAyYubBQqSsHhXpPyYxFfUeIiEHdSlLswWDCMpFDdfPmchMNnpPuUmtTMmEgGgGeRRcmMCHhrWwYyrZzDdrRPeEiIlLnwWMmNEepTjJfFDlLdMmATgGJjJlLjlLthZsLlRSsrWwSCczHfFzZfFjJalLMBbsAaSxXBbowWdDczyYZzpPZyYtZzTCyYvbBVOmmEeSsMaAiIFoOpoOHhhHKHhHhXxXxkuEbUutTBejJzZLlvKkVxXNHhnsvVXxSrRqQFiIftVvTqRrQoaAOMmmMfFUvVNnuurRUEJrRjuUhHuUZzgGTGgtKkEedDrRLIilpPeMmMTKktnNHhKkPpmlLjJZGgzlLJUkKuwWUgGuvVcCUZzuLKklAaKkqpstTScCCcPoZzOJjvvVEqQepPxwWXdDVvXxQxXadDoOkKAqMmEqQwWeVQoOYeEsSyeEyYjuhHvVXxUzZEeDdCcoOOoAVbBvcCmMaLRrlyYlLRruUGwWtsSkUuKwWTFfgsSTZzFfVyxXYTtvcuUCtuUGgRzgGZcCZzvVEeUurVvZzHheEhHUUojJOuuMmUXxgAvVDdapgGPgGKkiIqQGrRufFfFWwFfSsDqXxbiIBQGgCcyYnNbBdu"

@@ -80,10 +80,14 @@ init =
         sleepiestMinutePerGuards =
             Dict.foldl getSleepiestMinutePerGuard [] minuteLog
 
-        sleepyGuard = List.foldl getSleepiestMinute ("N/A", (0, 0)) sleepiestMinutePerGuards
+        sleepyGuard =
+            List.foldl getSleepiestMinute ( "N/A", ( 0, 0 ) ) sleepiestMinutePerGuards
 
-        guardId = Tuple.first sleepyGuard
-        minute = Tuple.first (Tuple.second sleepyGuard)
+        guardId =
+            Tuple.first sleepyGuard
+
+        minute =
+            Tuple.first (Tuple.second sleepyGuard)
     in
     ( ( guardId, minute ), Cmd.none )
 
